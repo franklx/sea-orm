@@ -5,6 +5,8 @@ use async_trait::async_trait;
 use sea_query::{Nullable, ValueTuple};
 use std::fmt::Debug;
 
+use defined::Defined;
+
 pub use ActiveValue::NotSet;
 
 /// Defines a stateful value used in ActiveModel.
@@ -682,6 +684,18 @@ where
     }
 }
 
+impl<V> IntoActiveValue<V> for Defined<V>
+where
+    V: IntoActiveValue<V> + Into<Value>,
+{
+    fn into_active_value(self) -> ActiveValue<V> {
+        match self {
+            Defined::Def(value) => Set(value),
+            Defined::Undef => NotSet,
+        }
+    }
+}
+
 macro_rules! impl_into_active_value {
     ($ty: ty) => {
         impl IntoActiveValue<$ty> for $ty {
@@ -888,6 +902,21 @@ where
         match value {
             ActiveValue::Set(value) => ActiveValue::set(Some(value)),
             ActiveValue::Unchanged(value) => ActiveValue::unchanged(Some(value)),
+            ActiveValue::NotSet => ActiveValue::not_set(),
+        }
+    }
+}
+
+impl<V> From<ActiveValue<Defined<V>>> for ActiveValue<V>
+where
+    V: Into<Value> + Nullable,
+{
+    fn from(value: ActiveValue<Defined<V>>) -> Self {
+        match value {
+            ActiveValue::Set(Defined::Def(value)) => ActiveValue::set(value),
+            ActiveValue::Unchanged(Defined::Def(value)) => ActiveValue::unchanged(value),
+            ActiveValue::Set(Defined::Undef) => ActiveValue::not_set(),
+            ActiveValue::Unchanged(Defined::Undef) => ActiveValue::not_set(),
             ActiveValue::NotSet => ActiveValue::not_set(),
         }
     }
