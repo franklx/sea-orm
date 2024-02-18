@@ -1,9 +1,9 @@
 use crate::{util::escape_rust_keyword, ActiveEnum, Entity};
-use heck::ToUpperCamelCase;
+use heck::{ToSnakeCase, ToUpperCamelCase};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use std::{collections::BTreeMap, str::FromStr};
-use syn::{punctuated::Punctuated, token::Comma};
+use syn::{punctuated::Punctuated, token::Comma, Ident};
 use tracing::info;
 
 #[derive(Clone, Debug)]
@@ -78,6 +78,19 @@ impl WithSerde {
             extra_derive = quote! { , #extra_derive }
         }
         extra_derive
+    }
+    pub fn extra_attributes(&self, entity: &Entity, ext: Option<&str>) -> TokenStream {
+        match self {
+            Self::None => {
+                quote! {}
+            }
+            _ => {
+                let struct_name = format!("{}{}", entity.get_table_name_camel_case(), ext.unwrap_or_default());
+                quote! {
+                    #[serde(rename = #struct_name)]
+                }
+            }
+        }
     }
 }
 
@@ -363,15 +376,25 @@ impl EntityWriter {
                 model_extra_derives,
                 model_extra_attributes,
             ),
+            Self::gen_partial_struct(
+                entity,
+                with_serde,
+                date_time_crate,
+                serde_skip_deserializing_primary_key,
+                serde_skip_hidden_column,
+                model_extra_derives,
+            ),
             Self::gen_column_enum(entity),
             Self::gen_primary_key_enum(entity),
             Self::gen_impl_primary_key(entity, date_time_crate),
             Self::gen_relation_enum(entity),
             Self::gen_impl_column_trait(entity),
             Self::gen_impl_relation_trait(entity),
+            Self::gen_tree_struct(entity, with_serde),
         ];
         code_blocks.extend(Self::gen_impl_related(entity));
         code_blocks.extend(Self::gen_impl_conjunct_related(entity));
+        code_blocks.extend(Self::gen_impl_linked(entity));
         code_blocks.extend([Self::gen_impl_active_model_behavior()]);
         if seaography {
             code_blocks.extend([Self::gen_related_entity(entity)]);
@@ -405,10 +428,20 @@ impl EntityWriter {
                 model_extra_derives,
                 model_extra_attributes,
             ),
+            Self::gen_partial_struct(
+                entity,
+                with_serde,
+                date_time_crate,
+                serde_skip_deserializing_primary_key,
+                serde_skip_hidden_column,
+                model_extra_derives,
+            ),
             Self::gen_compact_relation_enum(entity),
+            Self::gen_tree_struct(entity, with_serde),
         ];
         code_blocks.extend(Self::gen_impl_related(entity));
         code_blocks.extend(Self::gen_impl_conjunct_related(entity));
+        code_blocks.extend(Self::gen_impl_linked(entity));
         code_blocks.extend([Self::gen_impl_active_model_behavior()]);
         if seaography {
             code_blocks.extend([Self::gen_related_entity(entity)]);
@@ -433,12 +466,14 @@ impl EntityWriter {
                 quote! {
                     #prelude_import
                     use serde::Deserialize;
+                    use defined::Defined;
                 }
             }
             WithSerde::Both => {
                 quote! {
                     #prelude_import
                     use serde::{Deserialize,Serialize};
+                    use defined::Defined;
                 }
             }
         }
@@ -527,11 +562,108 @@ impl EntityWriter {
         }
     }
 
+    pub fn gen_partial_struct(
+        entity: &Entity,
+        with_serde: &WithSerde,
+        date_time_crate: &DateTimeCrate,
+        serde_skip_deserializing_primary_key: bool,
+        serde_skip_hidden_column: bool,
+        model_extra_derives: &TokenStream,
+    ) -> TokenStream {
+        let columns = entity.get_columns_by_serde_attributes(
+            serde_skip_deserializing_primary_key,
+            serde_skip_hidden_column,
+        );
+        let column_names_snake_case: Vec<_> = columns.iter().map(|col| col.get_name_snake_case()).collect();
+        let column_rs_types: Vec<_> = columns.iter().map(|col| col.get_rs_type(date_time_crate)).collect();
+        let if_eq_needed = entity.get_eq_needed();
+        let serde_extra_attributes = with_serde.extra_attributes(entity, Some("Partial"));
+
+        match with_serde {
+            WithSerde::Deserialize | WithSerde::Both =>
+                quote! {
+                    #[derive(Clone, Debug, PartialEq, DeriveIntoActiveModel, Deserialize #if_eq_needed #model_extra_derives)]
+                    #serde_extra_attributes
+                    pub struct Partial {
+                        #(
+                            pub #column_names_snake_case: Defined<#column_rs_types>,
+                        )*
+                    }
+                },
+            _ => quote! {}
+        }
+    }
+
+    pub fn gen_tree_struct(entity: &Entity, with_serde: &WithSerde) -> TokenStream {
+        let if_eq_needed = entity.get_eq_needed();
+        let extra_derive = with_serde.extra_derive();
+        let (field_names, field_types): (Vec<Ident>, Vec<TokenStream>) = entity
+            .relations
+            .iter()
+            .filter_map(|rel| {
+                if let Some(mod_name) = rel.get_module_name() {
+                    let suffix = if let [Some(l_name), Some(r_name)] =
+                        [rel.columns.first(), rel.ref_columns.first()]
+                    {
+                        l_name.strip_prefix(r_name).unwrap_or_default()
+                    } else {
+                        ""
+                    };
+                    let prefix = rel.columns.first()
+                        .map_or_else(
+                            || mod_name.to_string(),
+                            |s| s.to_snake_case().trim_end_matches("_id").to_owned()
+                    );
+                    let field_name = format_ident!("{prefix}{suffix}");
+                    match rel.rel_type {
+                        crate::RelationType::HasOne | crate::RelationType::BelongsTo => {
+                            Some((field_name, quote! {Option<super::#mod_name::Tree>}))
+                        }
+                        crate::RelationType::HasMany => {
+                            Some((field_name, quote! {Option<Vec<super::#mod_name::Tree>>}))
+                        }
+                    }
+                } else {
+                    None
+                }
+            })
+            .unzip();
+
+        quote! {
+            #[derive(Clone, Debug, PartialEq #if_eq_needed #extra_derive)]
+            pub struct Tree {
+                #[serde(flatten)]
+                pub model: Model,
+                #(pub #field_names: #field_types),*
+            }
+            impl std::ops::Deref for Tree {
+                type Target = Model;
+
+                fn deref(&self) -> &Model {
+                    &self.model
+                }
+            }
+            impl Tree {
+                pub fn new_model(model: Model) -> Self {
+                    Self {
+                        model,
+                        #(#field_names: None),*
+                    }
+                }
+            }
+            impl From<Model> for Tree {
+                fn from(value: Model) -> Self {
+                    Self::new_model(value)
+                }
+            }
+        }
+    }
+
     pub fn gen_column_enum(entity: &Entity) -> TokenStream {
         let column_variants = entity.columns.iter().map(|col| {
             let variant = col.get_name_camel_case();
             let mut variant = quote! { #variant };
-            if !col.is_snake_case_name() {
+            if col.name != col.name.to_upper_camel_case().to_snake_case() {
                 let column_name = &col.name;
                 variant = quote! {
                     #[sea_orm(column_name = #column_name)]
@@ -688,6 +820,26 @@ impl EntityWriter {
             .collect()
     }
 
+    pub fn gen_impl_linked(entity: &Entity) -> Vec<TokenStream> {
+        entity
+            .relations
+            .iter()
+            .filter(|rel| !rel.self_referencing && rel.num_suffix > 0 && rel.impl_related)
+            .map(|rel| {
+                let enum_name = rel.get_enum_name();
+                let module_name = rel.get_module_name();
+                quote! {
+                    pub struct #enum_name;
+                    impl Linked for #enum_name {
+                        type FromEntity = Entity;
+                        type ToEntity = super::#module_name::Entity;
+                        fn link(&self) -> Vec<RelationDef> { vec![Relation::#enum_name.def()] }
+                    }
+                }
+            })
+            .collect()
+    }
+
     pub fn gen_impl_active_model_behavior() -> TokenStream {
         quote! {
             impl ActiveModelBehavior for ActiveModel {}
@@ -727,6 +879,7 @@ impl EntityWriter {
         let column_names_snake_case = entity.get_column_names_snake_case();
         let column_rs_types = entity.get_column_rs_types(date_time_crate);
         let if_eq_needed = entity.get_eq_needed();
+        let serde_extra_attributes = with_serde.extra_attributes(entity, None);
         let primary_keys: Vec<String> = entity
             .primary_keys
             .iter()
@@ -793,6 +946,7 @@ impl EntityWriter {
                 #schema_name
                 table_name = #table_name
             )]
+            #serde_extra_attributes
             #model_extra_attributes
             pub struct Model {
                 #(
@@ -1723,7 +1877,7 @@ mod tests {
 
     #[test]
     fn test_gen_with_serde() -> io::Result<()> {
-        let cake_entity = setup().get(0).unwrap().clone();
+        let cake_entity = setup().first().unwrap().clone();
 
         assert_eq!(cake_entity.get_table_name_snake_case(), "cake");
 
@@ -2141,7 +2295,7 @@ mod tests {
 
     #[test]
     fn test_gen_with_attributes() -> io::Result<()> {
-        let cake_entity = setup().get(0).unwrap().clone();
+        let cake_entity = setup().first().unwrap().clone();
 
         assert_eq!(cake_entity.get_table_name_snake_case(), "cake");
 

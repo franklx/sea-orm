@@ -30,15 +30,16 @@ pub struct Relation {
 impl Relation {
     pub fn get_enum_name(&self) -> Ident {
         let name = if self.self_referencing {
-            format_ident!("SelfRef")
+            "SelfRef".to_owned()
         } else {
-            format_ident!("{}", self.ref_table.to_upper_camel_case())
+            self.columns
+                .get(0)
+                .map_or_else(
+                    || self.ref_table.to_upper_camel_case(),
+                    |s| s.to_upper_camel_case().trim_end_matches("Id").to_owned()
+                )
         };
-        if self.num_suffix > 0 {
-            format_ident!("{}{}", name, self.num_suffix)
-        } else {
-            name
-        }
+        format_ident!("{name}")
     }
 
     pub fn get_module_name(&self) -> Option<Ident> {

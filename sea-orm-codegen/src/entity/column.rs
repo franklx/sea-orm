@@ -245,6 +245,18 @@ impl Column {
             _ => &self.col_type,
         }
     }
+
+    pub fn include_if_serde_attribute(
+        &self,
+        is_primary_key: bool,
+        serde_skip_deserializing_primary_key: bool,
+        serde_skip_hidden_column: bool,
+    ) -> bool {
+        ! (
+            (self.name.starts_with('_') && serde_skip_hidden_column) ||
+            (serde_skip_deserializing_primary_key && is_primary_key)
+        )
+    }
 }
 
 impl From<ColumnDef> for Column {
