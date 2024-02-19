@@ -721,6 +721,32 @@ impl_into_active_value!(&'static str);
 impl_into_active_value!(String);
 impl_into_active_value!(Vec<u8>);
 
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<bool>);
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<i8>);
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<i16>);
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<i32>);
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<i64>);
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<u16>);
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<u32>);
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<u64>);
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<f32>);
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<f64>);
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<String>);
+
+#[cfg(all(feature = "postgres-array", feature = "with-rust_decimal"))]
+impl_into_active_value!(Vec<crate::prelude::Decimal>);
+
 #[cfg(feature = "with-json")]
 #[cfg_attr(docsrs, doc(cfg(feature = "with-json")))]
 impl_into_active_value!(crate::prelude::Json);
