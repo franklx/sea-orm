@@ -390,7 +390,7 @@ impl EntityWriter {
             Self::gen_relation_enum(entity),
             Self::gen_impl_column_trait(entity),
             Self::gen_impl_relation_trait(entity),
-            Self::gen_tree_struct(entity, with_serde, model_extra_derives),
+            Self::gen_tree_struct(entity, with_serde, model_extra_derives, model_extra_attributes),
         ];
         code_blocks.extend(Self::gen_impl_related(entity));
         code_blocks.extend(Self::gen_impl_conjunct_related(entity));
@@ -437,7 +437,7 @@ impl EntityWriter {
                 model_extra_derives,
             ),
             Self::gen_compact_relation_enum(entity),
-            Self::gen_tree_struct(entity, with_serde, model_extra_derives),
+            Self::gen_tree_struct(entity, with_serde, model_extra_derives, model_extra_attributes),
         ];
         code_blocks.extend(Self::gen_impl_related(entity));
         code_blocks.extend(Self::gen_impl_conjunct_related(entity));
@@ -594,9 +594,15 @@ impl EntityWriter {
         }
     }
 
-    pub fn gen_tree_struct(entity: &Entity, with_serde: &WithSerde, model_extra_derives: &TokenStream) -> TokenStream {
+    pub fn gen_tree_struct(
+        entity: &Entity,
+        with_serde: &WithSerde,
+        model_extra_derives: &TokenStream,
+        model_extra_attributes: &TokenStream
+    ) -> TokenStream {
         let if_eq_needed = entity.get_eq_needed();
         let extra_derive = with_serde.extra_derive();
+        let serde_extra_attributes = with_serde.extra_attributes(entity, Some("Tree"));
         let (field_names, field_types): (Vec<Ident>, Vec<TokenStream>) = entity
             .relations
             .iter()
@@ -631,6 +637,8 @@ impl EntityWriter {
 
         quote! {
             #[derive(Clone, Debug, PartialEq #if_eq_needed #extra_derive #model_extra_derives)]
+            #serde_extra_attributes
+            #model_extra_attributes
             pub struct Tree {
                 #[serde(flatten)]
                 pub model: Model,
