@@ -94,16 +94,16 @@ impl<'c> SchemaManager<'c> {
     }
 }
 
-/// Schema Inspection
+/// Schema Inspection.
 impl<'c> SchemaManager<'c> {
     pub async fn has_table<T>(&self, table: T) -> Result<bool, DbErr>
     where
         T: AsRef<str>,
     {
         let stmt = match self.conn.get_database_backend() {
-            DbBackend::MySql => MySql::has_table(table),
-            DbBackend::Postgres => Postgres::has_table(table),
-            DbBackend::Sqlite => Sqlite::has_table(table),
+            DbBackend::MySql => MySql.has_table(table),
+            DbBackend::Postgres => Postgres.has_table(table),
+            DbBackend::Sqlite => Sqlite.has_table(table),
         };
 
         let builder = self.conn.get_database_backend();
@@ -122,9 +122,9 @@ impl<'c> SchemaManager<'c> {
         C: AsRef<str>,
     {
         let stmt = match self.conn.get_database_backend() {
-            DbBackend::MySql => MySql::has_column(table, column),
-            DbBackend::Postgres => Postgres::has_column(table, column),
-            DbBackend::Sqlite => Sqlite::has_column(table, column),
+            DbBackend::MySql => MySql.has_column(table, column),
+            DbBackend::Postgres => Postgres.has_column(table, column),
+            DbBackend::Sqlite => Sqlite.has_column(table, column),
         };
 
         let builder = self.conn.get_database_backend();
@@ -143,9 +143,9 @@ impl<'c> SchemaManager<'c> {
         I: AsRef<str>,
     {
         let stmt = match self.conn.get_database_backend() {
-            DbBackend::MySql => MySql::has_index(table, index),
-            DbBackend::Postgres => Postgres::has_index(table, index),
-            DbBackend::Sqlite => Sqlite::has_index(table, index),
+            DbBackend::MySql => MySql.has_index(table, index),
+            DbBackend::Postgres => Postgres.has_index(table, index),
+            DbBackend::Sqlite => Sqlite.has_index(table, index),
         };
 
         let builder = self.conn.get_database_backend();

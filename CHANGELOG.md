@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## 1.0.0-rc.2 - Pending
+## 1.0.0-rc.2 - 2024-03-15
 
 ### Breaking Changes
 
@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Enhancements
 
-* [sea-orm-cli] Fix `migrate generate` on empty `mod.rs` files
+* [sea-orm-cli] Fix `migrate generate` on empty `mod.rs` files https://github.com/SeaQL/sea-orm/pull/2064
 * `DerivePartialModel` macro attribute `entity` now supports `syn::Type` https://github.com/SeaQL/sea-orm/pull/2137
 ```rust
 #[derive(DerivePartialModel)]
@@ -50,6 +50,10 @@ assert_eq!(
     .join(" ")
 );
 ```
+
+### Upgrades
+
+* Upgrade `sea-schema` to `0.15.0-rc.3`
 
 ### House keeping
 
