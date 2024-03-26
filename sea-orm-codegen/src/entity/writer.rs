@@ -571,7 +571,7 @@ impl EntityWriter {
         model_extra_derives: &TokenStream,
     ) -> TokenStream {
         let columns = entity.get_columns_by_serde_attributes(
-            serde_skip_deserializing_primary_key,
+            true,
             serde_skip_hidden_column,
         );
         let column_names_snake_case: Vec<_> = columns.iter().map(|col| col.get_name_snake_case()).collect();
