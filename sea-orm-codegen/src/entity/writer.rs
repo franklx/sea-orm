@@ -975,16 +975,9 @@ impl EntityWriter {
     }
 
     pub fn gen_schema_name(schema_name: &Option<String>) -> Option<TokenStream> {
-        match schema_name {
-            Some(schema_name) => {
-                if schema_name != "public" {
-                    Some(quote! { #schema_name })
-                } else {
-                    None
-                }
-            }
-            None => None,
-        }
+        schema_name
+            .as_ref()
+            .map(|schema_name| quote! { #schema_name })
     }
 }
 
@@ -1727,27 +1720,6 @@ mod tests {
                 .to_string()
             );
             assert_eq!(
-                parse_from_file(ENTITY_FILES[i].as_bytes())?.to_string(),
-                EntityWriter::gen_expanded_code_blocks(
-                    entity,
-                    &crate::WithSerde::None,
-                    &crate::DateTimeCrate::Chrono,
-                    &Some("public".to_owned()),
-                    false,
-                    false,
-                    &TokenStream::new(),
-                    &TokenStream::new(),
-                    false,
-                )
-                .into_iter()
-                .skip(1)
-                .fold(TokenStream::new(), |mut acc, tok| {
-                    acc.extend(tok);
-                    acc
-                })
-                .to_string()
-            );
-            assert_eq!(
                 parse_from_file(ENTITY_FILES_WITH_SCHEMA_NAME[i].as_bytes())?.to_string(),
                 EntityWriter::gen_expanded_code_blocks(
                     entity,
@@ -1817,27 +1789,6 @@ mod tests {
                     &crate::WithSerde::None,
                     &crate::DateTimeCrate::Chrono,
                     &None,
-                    false,
-                    false,
-                    &TokenStream::new(),
-                    &TokenStream::new(),
-                    false,
-                )
-                .into_iter()
-                .skip(1)
-                .fold(TokenStream::new(), |mut acc, tok| {
-                    acc.extend(tok);
-                    acc
-                })
-                .to_string()
-            );
-            assert_eq!(
-                parse_from_file(ENTITY_FILES[i].as_bytes())?.to_string(),
-                EntityWriter::gen_compact_code_blocks(
-                    entity,
-                    &crate::WithSerde::None,
-                    &crate::DateTimeCrate::Chrono,
-                    &Some("public".to_owned()),
                     false,
                     false,
                     &TokenStream::new(),
@@ -2487,27 +2438,6 @@ mod tests {
                     &crate::WithSerde::None,
                     &crate::DateTimeCrate::Chrono,
                     &None,
-                    false,
-                    false,
-                    &TokenStream::new(),
-                    &TokenStream::new(),
-                    false,
-                )
-                .into_iter()
-                .skip(1)
-                .fold(TokenStream::new(), |mut acc, tok| {
-                    acc.extend(tok);
-                    acc
-                })
-                .to_string()
-            );
-            assert_eq!(
-                parse_from_file(ENTITY_FILES[i].as_bytes())?.to_string(),
-                EntityWriter::gen_compact_code_blocks(
-                    entity,
-                    &crate::WithSerde::None,
-                    &crate::DateTimeCrate::Chrono,
-                    &Some("public".to_owned()),
                     false,
                     false,
                     &TokenStream::new(),
