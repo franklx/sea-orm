@@ -1,5 +1,6 @@
 use crate::{
-    error::*, ConnectionTrait, DeleteResult, EntityTrait, Iterable, PrimaryKeyToColumn, Value,
+    error::*, ConnectionTrait, DeleteResult, EntityTrait, Iterable, PrimaryKeyArity,
+    PrimaryKeyToColumn, PrimaryKeyTrait, Value,
 };
 use async_trait::async_trait;
 use sea_query::{Nullable, ValueTuple};
@@ -141,7 +142,7 @@ pub trait ActiveModelTrait: Clone + Debug {
                 }
             };
         }
-        match <Self::Entity as EntityTrait>::PrimaryKey::iter().count() {
+        match <<<Self::Entity as EntityTrait>::PrimaryKey as PrimaryKeyTrait>::ValueType as PrimaryKeyArity>::ARITY {
             1 => {
                 let s1 = next!();
                 Some(ValueTuple::One(s1))
@@ -888,6 +889,43 @@ where
             Some(value) => ActiveValue::Set(value),
             None => ActiveValue::NotSet,
         };
+    }
+
+    /// `Set(value)`, except when [`self.is_unchanged()`][ActiveValue#method.is_unchanged]
+    /// and `value` equals the current [Unchanged][ActiveValue::Unchanged] value.
+    ///
+    /// This is useful when you have an [Unchanged][ActiveValue::Unchanged] value from the database,
+    /// then update it using this method,
+    /// and then use [`.is_unchanged()`][ActiveValue#method.is_unchanged] to see whether it has *actually* changed.
+    ///
+    /// The same nice effect applies to the entire `ActiveModel`.
+    /// You can now meaningfully use [ActiveModelTrait::is_changed][ActiveModelTrait#method.is_changed]
+    /// to see whether are any changes that need to be saved to the database.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// # use sea_orm::ActiveValue;
+    /// #
+    /// let mut value = ActiveValue::Unchanged("old");
+    ///
+    /// // This wouldn't be the case if we used plain `value = Set("old");`
+    /// value.set_if_not_equals("old");
+    /// assert!(value.is_unchanged());
+    ///
+    /// // Only when we change the actual `&str` value, it becomes `Set`
+    /// value.set_if_not_equals("new");
+    /// assert_eq!(value.is_unchanged(), false);
+    /// assert_eq!(value, ActiveValue::Set("new"));
+    /// ```
+    pub fn set_if_not_equals(&mut self, value: V)
+    where
+        V: PartialEq,
+    {
+        match self {
+            ActiveValue::Unchanged(current) if &value == current => {}
+            _ => *self = ActiveValue::Set(value),
+        }
     }
 
     /// Get the inner value, unless `self` is [NotSet][ActiveValue::NotSet].
