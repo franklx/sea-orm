@@ -40,7 +40,7 @@ impl ActiveEnum {
         let mut db_type = Err(Error::TT(quote_spanned! {
             ident_span => compile_error!("Missing macro attribute `db_type`");
         }));
-        let mut rename_all_rule = None;
+        let mut rename_all = None;
 
         input
             .attrs
@@ -72,7 +72,7 @@ impl ActiveEnum {
                         let litstr: LitStr = meta.value()?.parse()?;
                         enum_name = litstr.value();
                     } else if meta.path.is_ident("rename_all") {
-                        rename_all_rule = Some((&meta).try_into()?);
+                        rename_all = Some((&meta).try_into()?);
                     } else {
                         return Err(meta.error(format!(
                             "Unknown attribute parameter found: {:?}",
@@ -89,7 +89,7 @@ impl ActiveEnum {
             _ => return Err(Error::InputNotEnum),
         };
 
-        let mut is_string = false;
+        let mut is_string = rename_all.is_some();
         let mut is_int = false;
         let mut variants = Vec::new();
 
@@ -115,6 +115,7 @@ impl ActiveEnum {
                         // to be considered unknown attribute parameter
                         meta.value()?.parse::<LitStr>()?;
                     } else if meta.path.is_ident("rename") {
+                        is_string = true;
                         rename_rule = Some((&meta).try_into()?);
                     } else {
                         return Err(meta.error(format!(
@@ -128,15 +129,13 @@ impl ActiveEnum {
                 .map_err(Error::Syn)?;
             }
 
-            if (is_string || rename_rule.is_some() || rename_all_rule.is_some()) && is_int {
+            if is_string && is_int {
                 return Err(Error::TT(quote_spanned! {
                     ident_span => compile_error!("All enum variants should specify the same `*_value` macro attribute, either `string_value` or `num_value` but not both");
                 }));
             }
 
-            if string_value.is_none()
-                && num_value.is_none()
-                && rename_rule.or(rename_all_rule).is_none()
+            if string_value.is_none() && num_value.is_none() && rename_rule.or(rename_all).is_none()
             {
                 match variant.discriminant {
                     Some((_, Expr::Lit(exprlit))) => {
@@ -190,7 +189,7 @@ impl ActiveEnum {
             db_type: db_type?,
             is_string,
             variants,
-            rename_all: rename_all_rule,
+            rename_all,
         })
     }
 
@@ -228,7 +227,6 @@ impl ActiveEnum {
                     quote! { #num_value }
                 } else if let Some(rename_rule) = variant.rename.or(*rename_all) {
                     let variant_ident = variant.ident.convert_case(Some(rename_rule));
-
                     quote! { #variant_ident }
                 } else {
                     quote_spanned! {
