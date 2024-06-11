@@ -600,7 +600,6 @@ impl EntityWriter {
         model_extra_derives: &TokenStream,
         model_extra_attributes: &TokenStream
     ) -> TokenStream {
-        let if_eq_needed = entity.get_eq_needed();
         let extra_derive = with_serde.extra_derive();
         let serde_extra_attributes = with_serde.extra_attributes(entity, Some("Tree"));
         let (field_names, field_types): (Vec<Ident>, Vec<TokenStream>) = entity
@@ -636,7 +635,7 @@ impl EntityWriter {
             .unzip();
 
         quote! {
-            #[derive(Clone, Debug, PartialEq #if_eq_needed #extra_derive #model_extra_derives)]
+            #[derive(Clone, Debug, PartialEq #extra_derive #model_extra_derives)]
             #serde_extra_attributes
             #model_extra_attributes
             pub struct Tree {
