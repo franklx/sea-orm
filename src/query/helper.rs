@@ -519,9 +519,7 @@ pub trait QuerySelect: Sized {
     ///     "SELECT `cake`.`id`, `cake`.`name`, UPPER(`cake`.`name`) AS `name_upper` FROM `cake`"
     /// );
     /// ```
-    ///
-    /// FIXME: change signature to `mut self`
-    fn expr_as<T, A>(&mut self, expr: T, alias: A) -> &mut Self
+    fn expr_as<T, A>(mut self, expr: T, alias: A) -> Self
     where
         T: Into<SimpleExpr>,
         A: IntoIdentity,
@@ -530,7 +528,7 @@ pub trait QuerySelect: Sized {
         self
     }
 
-    /// Owned version of `expr_as`.
+    /// Same as `expr_as`. Here for legacy reasons.
     ///
     /// Select column.
     ///
@@ -555,6 +553,32 @@ pub trait QuerySelect: Sized {
         A: IntoIdentity,
     {
         self.query().expr_as(expr, alias.into_identity());
+        self
+    }
+
+    /// Shorthand of `expr_as(Expr::col((T, C)), A)`.
+    ///
+    /// ```
+    /// use sea_orm::sea_query::{Alias, Expr, Func};
+    /// use sea_orm::{entity::*, tests_cfg::cake, DbBackend, QuerySelect, QueryTrait};
+    ///
+    /// assert_eq!(
+    ///     cake::Entity::find()
+    ///         .select_only()
+    ///         .tbl_col_as((cake::Entity, cake::Column::Name), "cake_name")
+    ///         .build(DbBackend::MySql)
+    ///         .to_string(),
+    ///     "SELECT `cake`.`name` AS `cake_name` FROM `cake`"
+    /// );
+    /// ```
+    fn tbl_col_as<T, C, A>(mut self, (tbl, col): (T, C), alias: A) -> Self
+    where
+        T: IntoIden + 'static,
+        C: IntoIden + 'static,
+        A: IntoIdentity,
+    {
+        self.query()
+            .expr_as(Expr::col((tbl, col)), alias.into_identity());
         self
     }
 }

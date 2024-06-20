@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## 1.0.0-rc.6 - 2024-06-19
+
+### Enhancements
+
+* Added non-TLS runtime https://github.com/SeaQL/sea-orm/pull/2256
+* Added `QuerySelect::tbl_col_as`
+* Added `Insert::on_conflict_do_nothing` https://github.com/SeaQL/sea-orm/pull/2244
+* Migration schema nullable column set NULL explicitly https://github.com/SeaQL/sea-orm/pull/2255
+
+### Bug Fixes
+
+* Set schema search path in Postgres without enclosing single quote https://github.com/SeaQL/sea-orm/pull/2241
+* [sea-orm-cli] Generate `has_one` relation for foreign key of unique index / constraint https://github.com/SeaQL/sea-orm/pull/2254
+
 ## 1.0.0-rc.5 - 2024-05-29
 
 ### New Features
@@ -41,6 +55,7 @@ pub enum TestEnum {
     CustomStringValue, // CuStOmStRiNgVaLuE
 }
 ```
+
 ### Enhancements
 
 * Added `ActiveValue::set_if_not_equals()` https://github.com/SeaQL/sea-orm/pull/2194
