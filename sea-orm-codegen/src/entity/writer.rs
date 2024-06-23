@@ -2,6 +2,7 @@ use crate::{util::escape_rust_keyword, ActiveEnum, Entity};
 use heck::{ToSnakeCase, ToUpperCamelCase};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
+use sea_query::ForeignKeyAction;
 use std::{collections::BTreeMap, str::FromStr};
 use syn::{punctuated::Punctuated, token::Comma, Ident};
 use tracing::info;
@@ -85,7 +86,11 @@ impl WithSerde {
                 quote! {}
             }
             _ => {
-                let struct_name = format!("{}{}", entity.get_table_name_camel_case(), ext.unwrap_or_default());
+                let struct_name = format!(
+                    "{}{}",
+                    entity.get_table_name_camel_case(),
+                    ext.unwrap_or_default()
+                );
                 quote! {
                     #[serde(rename = #struct_name)]
                 }
@@ -390,7 +395,12 @@ impl EntityWriter {
             Self::gen_relation_enum(entity),
             Self::gen_impl_column_trait(entity),
             Self::gen_impl_relation_trait(entity),
-            Self::gen_tree_struct(entity, with_serde, model_extra_derives, model_extra_attributes),
+            Self::gen_tree_struct(
+                entity,
+                with_serde,
+                model_extra_derives,
+                model_extra_attributes,
+            ),
         ];
         code_blocks.extend(Self::gen_impl_related(entity));
         code_blocks.extend(Self::gen_impl_conjunct_related(entity));
@@ -437,7 +447,12 @@ impl EntityWriter {
                 model_extra_derives,
             ),
             Self::gen_compact_relation_enum(entity),
-            Self::gen_tree_struct(entity, with_serde, model_extra_derives, model_extra_attributes),
+            Self::gen_tree_struct(
+                entity,
+                with_serde,
+                model_extra_derives,
+                model_extra_attributes,
+            ),
         ];
         code_blocks.extend(Self::gen_impl_related(entity));
         code_blocks.extend(Self::gen_impl_conjunct_related(entity));
@@ -570,27 +585,29 @@ impl EntityWriter {
         serde_skip_hidden_column: bool,
         model_extra_derives: &TokenStream,
     ) -> TokenStream {
-        let columns = entity.get_columns_by_serde_attributes(
-            true,
-            serde_skip_hidden_column,
-        );
-        let column_names_snake_case: Vec<_> = columns.iter().map(|col| col.get_name_snake_case()).collect();
-        let column_rs_types: Vec<_> = columns.iter().map(|col| col.get_rs_type(date_time_crate)).collect();
+        let columns = entity.get_columns_by_serde_attributes(true, serde_skip_hidden_column);
+        let column_names_snake_case: Vec<_> = columns
+            .iter()
+            .map(|col| col.get_name_snake_case())
+            .collect();
+        let column_rs_types: Vec<_> = columns
+            .iter()
+            .map(|col| col.get_rs_type(date_time_crate))
+            .collect();
         let if_eq_needed = entity.get_eq_needed();
         let serde_extra_attributes = with_serde.extra_attributes(entity, Some("Partial"));
 
         match with_serde {
-            WithSerde::Deserialize | WithSerde::Both =>
-                quote! {
-                    #[derive(Clone, Debug, PartialEq, DeriveIntoActiveModel, Deserialize #if_eq_needed #model_extra_derives)]
-                    #serde_extra_attributes
-                    pub struct Partial {
-                        #(
-                            pub #column_names_snake_case: Defined<#column_rs_types>,
-                        )*
-                    }
-                },
-            _ => quote! {}
+            WithSerde::Deserialize | WithSerde::Both => quote! {
+                #[derive(Clone, Debug, PartialEq, DeriveIntoActiveModel, Deserialize #if_eq_needed #model_extra_derives)]
+                #serde_extra_attributes
+                pub struct Partial {
+                    #(
+                        pub #column_names_snake_case: Defined<#column_rs_types>,
+                    )*
+                }
+            },
+            _ => quote! {},
         }
     }
 
@@ -598,7 +615,7 @@ impl EntityWriter {
         entity: &Entity,
         with_serde: &WithSerde,
         model_extra_derives: &TokenStream,
-        model_extra_attributes: &TokenStream
+        model_extra_attributes: &TokenStream,
     ) -> TokenStream {
         let extra_derive = with_serde.extra_derive();
         let serde_extra_attributes = with_serde.extra_attributes(entity, Some("Tree"));
@@ -614,19 +631,25 @@ impl EntityWriter {
                     } else {
                         ""
                     };
-                    let prefix = rel.columns.first()
+                    let prefix = rel.columns
+                        .first()
                         .map_or_else(
                             || mod_name.to_string(),
-                            |s| s.to_snake_case().trim_end_matches("_id").to_owned()
-                    );
+                            |s| s.to_snake_case().trim_end_matches("_id").to_owned(),
+                        );
                     let field_name = format_ident!("{prefix}{suffix}");
-                    match rel.rel_type {
-                        crate::RelationType::HasOne | crate::RelationType::BelongsTo => {
+                    match (&rel.rel_type, &rel.on_delete) {
+                        (crate::RelationType::HasOne, _) => {
                             Some((field_name, quote! {Option<super::#mod_name::Tree>}))
                         }
-                        crate::RelationType::HasMany => {
+                        (crate::RelationType::HasMany, Some(ForeignKeyAction::Cascade)) => {
                             Some((field_name, quote! {Option<Vec<super::#mod_name::Tree>>}))
                         }
+                        (crate::RelationType::BelongsTo, Some(ForeignKeyAction::NoAction))
+                        | (crate::RelationType::BelongsTo, None) => {
+                            Some((field_name, quote! {Option<super::#mod_name::Tree>}))
+                        }
+                        _ => None,
                     }
                 } else {
                     None
