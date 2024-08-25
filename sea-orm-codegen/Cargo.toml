@@ -1,6 +1,6 @@
 [package]
 name = "sea-orm-codegen"
-version = "1.1.0-rc.1-frk1"
+version = "1.1.0-rc.1+frk.1"
 authors = ["Billy Chan <ccw.billy.123@gmail.com>"]
 edition = "2021"
 description = "Code Generator for SeaORM"
@@ -11,6 +11,8 @@ repository = "https://github.com/SeaQL/sea-orm"
 categories = ["database"]
 keywords = ["sql", "mysql", "postgres", "sqlite"]
 rust-version = "1.65"
+
+publish = ["elleci"]
 
 [lib]
 name = "sea_orm_codegen"
@@ -26,4 +28,4 @@ tracing = { version = "0.1", default-features = false, features = ["log"] }
 
 [dev-dependencies]
 pretty_assertions = { version = "0.7" }
-sea-orm = { path = "../", default-features = false, features = ["macros"] }
+sea-orm = { registry = "elleci", path = "../", default-features = false, features = ["macros"] }

@@ -3,7 +3,7 @@
 
 [package]
 name = "sea-orm-cli"
-version = "1.1.0-rc.1-frk1"
+version = "1.1.0-rc.1+frk.1"
 authors = [
     "Chris Tsang <chris.2y3@outlook.com>",
     "Billy Chan <ccw.billy.123@gmail.com>",
@@ -18,6 +18,8 @@ categories = ["database"]
 keywords = ["async", "orm", "mysql", "postgres", "sqlite"]
 default-run = "sea-orm-cli"
 rust-version = "1.65"
+
+publish = ["elleci"]
 
 [lib]
 name = "sea_orm_cli"
@@ -37,7 +39,7 @@ required-features = ["cli", "codegen"]
 clap = { version = "4.3", features = ["env", "derive"], optional = true }
 dotenvy = { version = "0.15", default-features = false, optional = true }
 async-std = { version = "1.9", default-features = false, features = ["attributes", "tokio1"], optional = true }
-sea-orm-codegen = { version = "=1.1.0-rc.1-frk1", path = "../sea-orm-codegen", default-features = false, optional = true }
+sea-orm-codegen = { registry = "elleci", version = "=1.1.0-rc.1", path = "../sea-orm-codegen", default-features = false, optional = true }
 sea-schema = { version = "0.16.0-rc.1" }
 sqlx = { version = "0.8", default-features = false, features = ["mysql", "postgres"], optional = true }
 tracing-subscriber = { version = "0.3.17", default-features = false, features = ["env-filter", "fmt"] }
