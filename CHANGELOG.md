@@ -10,14 +10,28 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Versions
 
 + `1.1.0-rc.1`: 2024-08-09
++ `1.1.0-rc.2`: 2024-10-04
+
+### Enhancements
+
+* [sea-orm-macros] Call `EnumIter::get` using fully qualified syntax https://github.com/SeaQL/sea-orm/pull/2321
+* Construct `DatabaseConnection` directly from `sqlx::PgPool`, `sqlx::SqlitePool` and `sqlx::MySqlPool` https://github.com/SeaQL/sea-orm/pull/2348
+* [sea-orm-migration] Add `pk_uuid` schema helper https://github.com/SeaQL/sea-orm/pull/2329
+* [sea-orm-migration] Allow `custom` and `custom_null` schema helper to take column name and alias of different `IntoIden` types https://github.com/SeaQL/sea-orm/pull/2326
 
 ### Upgrades
 
-* Upgrade `sqlx` to `0.8` https://github.com/SeaQL/sea-orm/pull/2305
+* Upgrade `sqlx` to `0.8.2` https://github.com/SeaQL/sea-orm/pull/2305, https://github.com/SeaQL/sea-orm/pull/2371
 * Upgrade `bigdecimal` to `0.4` https://github.com/SeaQL/sea-orm/pull/2305
 * Upgrade `sea-query` to `0.32.0-rc` https://github.com/SeaQL/sea-orm/pull/2305
 * Upgrade `sea-query-binder` to `0.7.0-rc` https://github.com/SeaQL/sea-orm/pull/2305
 * Upgrade `sea-schema` to `0.16.0-rc` https://github.com/SeaQL/sea-orm/pull/2305
+* Upgrade `ouroboros` to `0.18` https://github.com/SeaQL/sea-orm/pull/2353
+
+### House keeping
+
+* Fix typos https://github.com/SeaQL/sea-orm/pull/2360
+* Update documentations https://github.com/SeaQL/sea-orm/pull/2345
 
 ## 1.0.1 - 2024-08-26
 
