@@ -585,7 +585,7 @@ impl EntityWriter {
         serde_skip_hidden_column: bool,
         model_extra_derives: &TokenStream,
     ) -> TokenStream {
-        let columns = entity.get_columns_by_serde_attributes(true, serde_skip_hidden_column);
+        let columns = entity.get_columns_by_serde_attributes(serde_skip_hidden_column);
         let column_names_snake_case: Vec<_> = columns
             .iter()
             .map(|col| col.get_name_snake_case())
