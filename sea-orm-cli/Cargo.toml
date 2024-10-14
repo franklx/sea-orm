@@ -3,7 +3,7 @@
 
 [package]
 name = "sea-orm-cli"
-version = "1.1.0+frk.4"
+version = "1.1.0+frk.5"
 authors = [
     "Chris Tsang <chris.2y3@outlook.com>",
     "Billy Chan <ccw.billy.123@gmail.com>",

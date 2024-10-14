@@ -19,6 +19,8 @@ pub async fn run_generate_command(
             include_hidden_tables,
             tables,
             ignore_tables,
+            include_hidden_columns,
+            ignore_columns,
             max_connections,
             output_dir,
             database_schema,
@@ -192,7 +194,7 @@ pub async fn run_generate_command(
                 enum_extra_attributes,
                 seaography,
             );
-            let output = EntityTransformer::transform(table_stmts)?.generate(&writer_context);
+            let output = EntityTransformer::transform(table_stmts, include_hidden_columns, ignore_columns)?.generate(&writer_context);
 
             let dir = Path::new(&output_dir);
             fs::create_dir_all(dir)?;

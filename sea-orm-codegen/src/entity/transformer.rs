@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, HashMap};
 pub struct EntityTransformer;
 
 impl EntityTransformer {
-    pub fn transform(table_create_stmts: Vec<TableCreateStatement>) -> Result<EntityWriter, Error> {
+    pub fn transform(table_create_stmts: Vec<TableCreateStatement>, include_hidden_columns: bool, ignore_columns: Vec<String>) -> Result<EntityWriter, Error> {
         let mut enums: BTreeMap<String, ActiveEnum> = BTreeMap::new();
         let mut inverse_relations: BTreeMap<String, Vec<Relation>> = BTreeMap::new();
         let mut entities = BTreeMap::new();
@@ -34,6 +34,13 @@ impl EntityTransformer {
             let columns: Vec<Column> = table_create
                 .get_columns()
                 .iter()
+                .filter(|col_def| {
+                    let name = &col_def.get_column_name();
+                    let skip =
+                        ignore_columns.contains(name) ||
+                        (!include_hidden_columns && name.starts_with('_'));
+                    !skip
+                })
                 .map(|col_def| {
                     let primary_key = col_def
                         .get_column_spec()
@@ -374,7 +381,7 @@ mod tests {
         table_create_stmts: Vec<TableCreateStatement>,
         files: Vec<(&str, &str)>,
     ) -> Result<(), Box<dyn Error>> {
-        let entities: HashMap<_, _> = EntityTransformer::transform(table_create_stmts)?
+        let entities: HashMap<_, _> = EntityTransformer::transform(table_create_stmts, false, vec![])?
             .entities
             .into_iter()
             .map(|entity| (entity.table_name.clone(), entity))
