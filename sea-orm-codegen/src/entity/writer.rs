@@ -648,11 +648,15 @@ impl EntityWriter {
                         (crate::RelationType::HasOne, _) => {
                             Some((field_name, quote! {Option<super::#mod_name::Tree>}))
                         }
-                        (crate::RelationType::HasMany, Some(ForeignKeyAction::Cascade)) => {
+                        | (crate::RelationType::HasMany, Some(ForeignKeyAction::Cascade))
+                        | (crate::RelationType::HasMany, Some(ForeignKeyAction::SetDefault))
+                        | (crate::RelationType::HasMany, Some(ForeignKeyAction::SetNull))
+                        => {
                             Some((field_name, quote! {Option<Vec<super::#mod_name::Tree>>}))
                         }
-                        (crate::RelationType::BelongsTo, Some(ForeignKeyAction::NoAction))
-                        | (crate::RelationType::BelongsTo, None) => {
+                        | (crate::RelationType::BelongsTo, Some(ForeignKeyAction::NoAction))
+                        | (crate::RelationType::BelongsTo, None)
+                        => {
                             Some((field_name, quote! {Option<super::#mod_name::Tree>}))
                         }
                         _ => None,
