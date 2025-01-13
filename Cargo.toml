@@ -3,7 +3,7 @@ members = [".", "sea-orm-macros", "sea-orm-codegen"]
 
 [package]
 name = "sea-orm"
-version = "1.1.4+frk.5"
+version = "1.1.4+frk.7"
 authors = ["Chris Tsang <chris.2y3@outlook.com>"]
 edition = "2021"
 description = "🐚 An async & dynamic ORM for Rust"
@@ -46,7 +46,7 @@ uuid = { version = "1", default-features = false, optional = true }
 ouroboros = { version = "0.18", default-features = false }
 url = { version = "2.2", default-features = false }
 thiserror = { version = "1", default-features = false }
-defined = { registry = "elleci", version = "0.2", default-features = false, features = ["sea-query"] }
+defined = { registry = "elleci", version = "0.3", default-features = false, features = ["sea-query"] }
 
 [dev-dependencies]
 smol = { version = "1.2" }

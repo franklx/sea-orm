@@ -80,7 +80,7 @@ impl WithSerde {
         }
         extra_derive
     }
-    pub fn extra_attributes(&self, entity: &Entity, ext: Option<&str>) -> TokenStream {
+    pub fn extra_attributes(&self, entity: &Entity, ext: Option<&str>, other: Option<&str>) -> TokenStream {
         match self {
             Self::None => {
                 quote! {}
@@ -91,8 +91,14 @@ impl WithSerde {
                     entity.get_table_name_camel_case(),
                     ext.unwrap_or_default()
                 );
+                let other = if let Some(attr) = other {
+                    let attr = TokenStream::from_str(attr).unwrap();
+                    quote! { , #attr}
+                } else {
+                    quote! {}
+                };
                 quote! {
-                    #[serde(rename = #struct_name)]
+                    #[serde(rename = #struct_name #other)]
                 }
             }
         }
@@ -601,11 +607,11 @@ impl EntityWriter {
             .map(|col| col.get_rs_type(date_time_crate))
             .collect();
         let if_eq_needed = entity.get_eq_needed();
-        let serde_extra_attributes = with_serde.extra_attributes(entity, Some("Partial"));
+        let serde_extra_attributes = with_serde.extra_attributes(entity, Some("Partial"), Some("default"));
 
         match with_serde {
             WithSerde::Deserialize | WithSerde::Both => quote! {
-                #[derive(Clone, Debug, PartialEq, DeriveIntoActiveModel, Deserialize #if_eq_needed #model_extra_derives)]
+                #[derive(Clone, Debug, PartialEq, DeriveIntoActiveModel, Deserialize, Default #if_eq_needed #model_extra_derives)]
                 #serde_extra_attributes
                 pub struct Partial {
                     #(
@@ -624,7 +630,7 @@ impl EntityWriter {
         model_extra_attributes: &TokenStream,
     ) -> TokenStream {
         let extra_derive = with_serde.extra_derive();
-        let serde_extra_attributes = with_serde.extra_attributes(entity, Some("Tree"));
+        let serde_extra_attributes = with_serde.extra_attributes(entity, Some("Tree"), None);
         let (field_names, field_types): (Vec<Ident>, Vec<TokenStream>) = entity
             .relations
             .iter()
@@ -956,7 +962,7 @@ impl EntityWriter {
         let column_names_snake_case = entity.get_column_names_snake_case();
         let column_rs_types = entity.get_column_rs_types(date_time_crate);
         let if_eq_needed = entity.get_eq_needed();
-        let serde_extra_attributes = with_serde.extra_attributes(entity, None);
+        let serde_extra_attributes = with_serde.extra_attributes(entity, None, None);
         let primary_keys: Vec<String> = entity
             .primary_keys
             .iter()
