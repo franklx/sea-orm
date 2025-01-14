@@ -82,6 +82,9 @@ impl EntityTransformer {
                 .get_foreign_key_create_stmts()
                 .iter()
                 .map(|fk_create_stmt| fk_create_stmt.get_foreign_key())
+                .filter(|tbl_fk| {
+                    include_hidden_columns || !tbl_fk.get_name().unwrap_or_default().starts_with('_')
+                })
                 .map(|tbl_fk| {
                     let ref_tbl = unpack_table_ref(tbl_fk.get_ref_table().unwrap());
                     if let Some(count) = ref_table_counts.get_mut(&ref_tbl) {
