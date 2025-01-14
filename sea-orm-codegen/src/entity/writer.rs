@@ -650,6 +650,7 @@ impl EntityWriter {
                             |s| s.to_snake_case().trim_end_matches("_id").to_owned(),
                         );
                     let field_name = format_ident!("{prefix}{suffix}");
+                    // println!("{name}: {rel:?}", name=&entity.table_name, rel=&rel);
                     match (&rel.rel_type, &rel.on_delete) {
                         (crate::RelationType::HasOne, _) => {
                             Some((field_name, quote! {Option<super::#mod_name::Tree>}))
