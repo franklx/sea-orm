@@ -2,6 +2,8 @@ use sea_orm_codegen::{
     DateTimeCrate as CodegenDateTimeCrate, EntityTransformer, EntityWriterContext, OutputFile,
     WithSerde,
 };
+use sea_schema::mysql::discovery::GetMySqlValue;
+use sqlx::Row;
 use std::{error::Error, fs, io::Write, path::Path, process::Command, str::FromStr};
 use tracing_subscriber::{prelude::*, EnvFilter};
 use url::Url;
@@ -36,6 +38,7 @@ pub async fn run_generate_command(
             enum_extra_derives,
             enum_extra_attributes,
             seaography,
+            views_hack,
         } => {
             if verbose {
                 let _ = tracing_subscriber::fmt()
@@ -117,6 +120,18 @@ pub async fn run_generate_command(
                     println!("Connecting to MySQL ...");
                     let connection =
                         sqlx_connect::<MySql>(max_connections, url.as_str(), None).await?;
+
+                    let hcon = connection.clone();
+                    let mut some_rows = None;
+                    if views_hack {
+                        let rows = sqlx::query(&format!("SELECT table_name FROM information_schema.views WHERE table_schema = '{database_name}' AND table_name LIKE '%_vw'"))
+                            .fetch_all(&hcon).await?;
+                        for rw in rows.iter() {
+                            sqlx::query(&format!("CREATE TABLE `{vw}$$` AS SELECT * FROM `{vw}` LIMIT 1", vw=rw.get_string(0))).execute(&hcon).await?;
+                        }
+                        some_rows = Some(rows);
+                    }
+
                     println!("Discovering schema ...");
                     let schema_discovery = SchemaDiscovery::new(connection, database_name);
                     let schema = schema_discovery.discover().await?;
@@ -128,6 +143,13 @@ pub async fn run_generate_command(
                         .filter(|schema| filter_skip_tables(&schema.info.name))
                         .map(|schema| schema.write())
                         .collect();
+
+                    if let Some(rows) = some_rows {
+                        for rw in rows {
+                            sqlx::query(&format!("DROP TABLE IF EXISTS `{vw}$$`", vw=rw.get_string(0))).execute(&hcon).await?;
+                        }
+                    }
+
                     (None, table_stmts)
                 }
                 "sqlite" => {
@@ -162,6 +184,18 @@ pub async fn run_generate_command(
                     let connection =
                         sqlx_connect::<Postgres>(max_connections, url.as_str(), Some(schema))
                             .await?;
+
+                    let hcon = connection.clone();
+                    let mut some_rows = None;
+                    if views_hack {
+                        let rows = sqlx::query("SELECT table_name FROM information_schema.views WHERE table_name LIKE '%_vw'")
+                            .fetch_all(&hcon).await?;
+                        for rw in rows.iter() {
+                            sqlx::query(&format!(r#"CREATE TABLE "{vw}$$" AS SELECT * FROM "{vw}" LIMIT 1"#, vw=rw.get::<String, _>(0))).execute(&hcon).await?;
+                        }
+                        some_rows = Some(rows);
+                    }
+
                     println!("Discovering schema ...");
                     let schema_discovery = SchemaDiscovery::new(connection, schema);
                     let schema = schema_discovery.discover().await?;
@@ -173,6 +207,13 @@ pub async fn run_generate_command(
                         .filter(|schema| filter_skip_tables(&schema.info.name))
                         .map(|schema| schema.write())
                         .collect();
+
+                    if let Some(rows) = some_rows {
+                        for rw in rows {
+                            sqlx::query(&format!(r#"DROP TABLE IF EXISTS "{vw}$$""#, vw=rw.get::<String, _>(0))).execute(&hcon).await?;
+                        }
+                    }
+
                     (database_schema, table_stmts)
                 }
                 _ => unimplemented!("{} is not supported", url.scheme()),

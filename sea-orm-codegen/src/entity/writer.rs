@@ -522,7 +522,7 @@ impl EntityWriter {
             },
             None => quote! {},
         };
-        let table_name = entity.table_name.as_str();
+        let table_name = entity.table_name.as_str().replace("$$", "");
         let table_name = quote! {
             fn table_name(&self) -> &str {
                 #table_name
@@ -597,6 +597,9 @@ impl EntityWriter {
         serde_skip_hidden_column: bool,
         model_extra_derives: &TokenStream,
     ) -> TokenStream {
+        if entity.table_name.ends_with("$$") {
+            return quote! {};
+        }
         let columns = entity.get_columns_by_serde_attributes(serde_skip_hidden_column);
         let column_names_snake_case: Vec<_> = columns
             .iter()
@@ -959,7 +962,7 @@ impl EntityWriter {
         model_extra_derives: &TokenStream,
         model_extra_attributes: &TokenStream,
     ) -> TokenStream {
-        let table_name = entity.table_name.as_str();
+        let table_name = entity.table_name.as_str().replace("$$", "");
         let column_names_snake_case = entity.get_column_names_snake_case();
         let column_rs_types = entity.get_column_rs_types(date_time_crate);
         let if_eq_needed = entity.get_eq_needed();

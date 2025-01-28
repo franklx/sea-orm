@@ -318,6 +318,9 @@ pub enum GenerateSubcommands {
             long_help = "Generate helper Enumerations that are used by Seaography."
         )]
         seaography: bool,
+
+        #[arg(long, help = "Reflect views LIKE '%_vw' using the `information_schema` hack")]
+        views_hack: bool,
     },
 }
 

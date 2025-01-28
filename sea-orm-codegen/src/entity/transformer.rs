@@ -84,9 +84,10 @@ impl EntityTransformer {
                 .map(|fk_create_stmt| fk_create_stmt.get_foreign_key())
                 .filter(|tbl_fk| {
                     let hack = format!("{:?}", tbl_fk);
-                    // println!("{hack}");
                     let name = hack.find("name: Some(\"").map(|i| &hack[i+12..]);
-                    include_hidden_columns || !name.unwrap_or_default().trim().starts_with('_')
+                    let ret = include_hidden_columns || !name.unwrap_or_default().trim().starts_with('_');
+                    println!("{hack}: {ret}");
+                    ret
                 })
                 .map(|tbl_fk| {
                     let ref_tbl = unpack_table_ref(tbl_fk.get_ref_table().unwrap());
