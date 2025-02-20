@@ -1,3 +1,4 @@
+use core::time;
 use sea_orm_codegen::{
     DateTimeCrate as CodegenDateTimeCrate, EntityTransformer, EntityWriterContext, OutputFile,
     WithSerde,
@@ -24,6 +25,7 @@ pub async fn run_generate_command(
             include_hidden_columns,
             ignore_columns,
             max_connections,
+            acquire_timeout,
             output_dir,
             database_schema,
             database_url,
@@ -119,7 +121,8 @@ pub async fn run_generate_command(
 
                     println!("Connecting to MySQL ...");
                     let connection =
-                        sqlx_connect::<MySql>(max_connections, url.as_str(), None).await?;
+                        sqlx_connect::<MySql>(max_connections, acquire_timeout, url.as_str(), None)
+                            .await?;
 
                     let hcon = connection.clone();
                     let mut some_rows = None;
@@ -157,8 +160,14 @@ pub async fn run_generate_command(
                     use sqlx::Sqlite;
 
                     println!("Connecting to SQLite ...");
-                    let connection =
-                        sqlx_connect::<Sqlite>(max_connections, url.as_str(), None).await?;
+                    let connection = sqlx_connect::<Sqlite>(
+                        max_connections,
+                        acquire_timeout,
+                        url.as_str(),
+                        None,
+                    )
+                    .await?;
+
                     println!("Discovering schema ...");
                     let schema_discovery = SchemaDiscovery::new(connection);
                     let schema = schema_discovery
@@ -181,9 +190,13 @@ pub async fn run_generate_command(
 
                     println!("Connecting to Postgres ...");
                     let schema = database_schema.as_deref().unwrap_or("public");
-                    let connection =
-                        sqlx_connect::<Postgres>(max_connections, url.as_str(), Some(schema))
-                            .await?;
+                    let connection = sqlx_connect::<Postgres>(
+                        max_connections,
+                        acquire_timeout,
+                        url.as_str(),
+                        Some(schema),
+                    )
+                    .await?;
 
                     let hcon = connection.clone();
                     let mut some_rows = None;
@@ -268,6 +281,7 @@ pub async fn run_generate_command(
 
 async fn sqlx_connect<DB>(
     max_connections: u32,
+    acquire_timeout: u64,
     url: &str,
     schema: Option<&str>,
 ) -> Result<sqlx::Pool<DB>, Box<dyn Error>>
@@ -275,7 +289,9 @@ where
     DB: sqlx::Database,
     for<'a> &'a mut <DB as sqlx::Database>::Connection: sqlx::Executor<'a>,
 {
-    let mut pool_options = sqlx::pool::PoolOptions::<DB>::new().max_connections(max_connections);
+    let mut pool_options = sqlx::pool::PoolOptions::<DB>::new()
+        .max_connections(max_connections)
+        .acquire_timeout(time::Duration::from_secs(acquire_timeout));
     // Set search_path for Postgres, E.g. Some("public") by default
     // MySQL & SQLite connection initialize with schema `None`
     if let Some(schema) = schema {
