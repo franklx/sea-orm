@@ -246,6 +246,13 @@ pub enum GenerateSubcommands {
 
         #[arg(
             long,
+            default_value = "all",
+            help = "Generate prelude.rs file (all, none, all-allow-unused-imports)"
+        )]
+        with_prelude: String,
+
+        #[arg(
+            long,
             default_value = "none",
             help = "Automatically derive serde Serialize / Deserialize traits for the entity (none, \
                 serialize, deserialize, both)"
@@ -325,6 +332,12 @@ pub enum GenerateSubcommands {
             long_help = "Generate helper Enumerations that are used by Seaography."
         )]
         seaography: bool,
+        #[arg(
+            long,
+            default_value = "true",
+            long_help = "Generate empty ActiveModelBehavior impls."
+        )]
+        impl_active_model_behavior: bool,
 
         #[arg(long, help = "Reflect views LIKE '%_vw' using the `information_schema` hack")]
         views_hack: bool,

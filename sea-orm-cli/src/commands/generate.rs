@@ -1,7 +1,7 @@
 use core::time;
 use sea_orm_codegen::{
     DateTimeCrate as CodegenDateTimeCrate, EntityTransformer, EntityWriterContext, OutputFile,
-    WithSerde,
+    WithPrelude, WithSerde,
 };
 use sea_schema::mysql::discovery::GetMySqlValue;
 use sqlx::Row;
@@ -29,6 +29,7 @@ pub async fn run_generate_command(
             output_dir,
             database_schema,
             database_url,
+            with_prelude,
             with_serde,
             serde_skip_deserializing_primary_key,
             serde_skip_hidden_column,
@@ -40,6 +41,7 @@ pub async fn run_generate_command(
             enum_extra_derives,
             enum_extra_attributes,
             seaography,
+            impl_active_model_behavior,
             views_hack,
         } => {
             if verbose {
@@ -235,6 +237,7 @@ pub async fn run_generate_command(
 
             let writer_context = EntityWriterContext::new(
                 expanded_format,
+                WithPrelude::from_str(&with_prelude).expect("Invalid prelude option"),
                 WithSerde::from_str(&with_serde).expect("Invalid serde derive option"),
                 with_copy_enums,
                 date_time_crate.into(),
@@ -247,6 +250,7 @@ pub async fn run_generate_command(
                 enum_extra_derives,
                 enum_extra_attributes,
                 seaography,
+                impl_active_model_behavior,
             );
             let output = EntityTransformer::transform(table_stmts, include_hidden_columns, ignore_columns)?.generate(&writer_context);
 
