@@ -1,4 +1,4 @@
-use clap::{ArgGroup, Parser, Subcommand, ValueEnum};
+use clap::{ArgAction, ArgGroup, Parser, Subcommand, ValueEnum};
 #[cfg(feature = "codegen")]
 use dotenvy::dotenv;
 
@@ -335,6 +335,10 @@ pub enum GenerateSubcommands {
         #[arg(
             long,
             default_value = "true",
+            default_missing_value = "true",
+            num_args = 0..=1,
+            require_equals = true,
+            action = ArgAction::Set,
             long_help = "Generate empty ActiveModelBehavior impls."
         )]
         impl_active_model_behavior: bool,
