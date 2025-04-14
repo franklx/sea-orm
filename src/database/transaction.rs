@@ -48,7 +48,7 @@ impl DatabaseTransaction {
                 // in MySQL SET TRANSACTION operations must be executed before transaction start
                 crate::driver::sqlx_mysql::set_transaction_config(c, isolation_level, access_mode)
                     .await?;
-                <sqlx::MySql as sqlx::Database>::TransactionManager::begin(c)
+                <sqlx::MySql as sqlx::Database>::TransactionManager::begin(c, None)
                     .await
                     .map_err(sqlx_error_to_query_err)
             }
