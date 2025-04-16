@@ -54,7 +54,7 @@ impl DatabaseTransaction {
             }
             #[cfg(feature = "sqlx-postgres")]
             InnerConnection::Postgres(ref mut c) => {
-                <sqlx::Postgres as sqlx::Database>::TransactionManager::begin(c)
+                <sqlx::Postgres as sqlx::Database>::TransactionManager::begin(c, None)
                     .await
                     .map_err(sqlx_error_to_query_err)?;
                 // in PostgreSQL SET TRANSACTION operations must be executed inside transaction
@@ -70,7 +70,7 @@ impl DatabaseTransaction {
                 // in SQLite isolation level and access mode are global settings
                 crate::driver::sqlx_sqlite::set_transaction_config(c, isolation_level, access_mode)
                     .await?;
-                <sqlx::Sqlite as sqlx::Database>::TransactionManager::begin(c)
+                <sqlx::Sqlite as sqlx::Database>::TransactionManager::begin(c, None)
                     .await
                     .map_err(sqlx_error_to_query_err)
             }
