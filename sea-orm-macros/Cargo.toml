@@ -29,7 +29,7 @@ proc-macro-crate = { version = "3.2.0", optional = true }
 unicode-ident = { version = "1" }
 
 [dev-dependencies]
-sea-orm = { registry = "elleci", path = "../", features = ["macros", "tests-cfg"] }
+sea-orm = { registry = "elleci", path = "../", default-features = false, features = ["macros", "tests-cfg"] }
 serde = { version = "1.0", features = ["derive"] }
 
 [features]

@@ -86,7 +86,7 @@ pub async fn run_generate_command(
 
             let filter_skip_tables = |table: &String| -> bool { !ignore_tables.contains(table) };
 
-            let database_name = if !is_sqlite {
+            let _database_name = if !is_sqlite {
                 // The database name should be the first element of the path string
                 //
                 // Throwing an error if there is no database name since it might be
@@ -118,118 +118,142 @@ pub async fn run_generate_command(
 
             let (schema_name, table_stmts) = match url.scheme() {
                 "mysql" => {
-                    use sea_schema::mysql::discovery::SchemaDiscovery;
-                    use sqlx::MySql;
-
-                    println!("Connecting to MySQL ...");
-                    let connection =
-                        sqlx_connect::<MySql>(max_connections, acquire_timeout, url.as_str(), None)
-                            .await?;
-
-                    let hcon = connection.clone();
-                    let mut some_rows = None;
-                    if views_hack {
-                        let rows = sqlx::query(&format!("SELECT table_name FROM information_schema.views WHERE table_schema = '{database_name}' AND table_name LIKE '%_vw'"))
-                            .fetch_all(&hcon).await?;
-                        for rw in rows.iter() {
-                            sqlx::query(&format!("CREATE TABLE `{vw}$$` AS SELECT * FROM `{vw}` LIMIT 1", vw=rw.get_string(0))).execute(&hcon).await?;
-                        }
-                        some_rows = Some(rows);
+                    #[cfg(not(feature = "sqlx-mysql"))]
+                    {
+                        panic!("mysql feature is off")
                     }
+                    #[cfg(feature = "sqlx-mysql")]
+                    {
+                        use sea_schema::mysql::discovery::SchemaDiscovery;
+                        use sqlx::MySql;
 
-                    println!("Discovering schema ...");
-                    let schema_discovery = SchemaDiscovery::new(connection, database_name);
-                    let schema = schema_discovery.discover().await?;
-                    let table_stmts = schema
-                        .tables
-                        .into_iter()
-                        .filter(|schema| filter_tables(&schema.info.name))
-                        .filter(|schema| filter_hidden_tables(&schema.info.name))
-                        .filter(|schema| filter_skip_tables(&schema.info.name))
-                        .map(|schema| schema.write())
-                        .collect();
+                        println!("Connecting to MySQL ...");
+                        let connection = sqlx_connect::<MySql>(
+                            max_connections,
+                            acquire_timeout,
+                            url.as_str(),
+                            None,
+                        )
+                        .await?;
 
-                    if let Some(rows) = some_rows {
-                        for rw in rows {
-                            sqlx::query(&format!("DROP TABLE IF EXISTS `{vw}$$`", vw=rw.get_string(0))).execute(&hcon).await?;
+                        let hcon = connection.clone();
+                        let mut some_rows = None;
+                        if views_hack {
+                            let rows = sqlx::query(&format!("SELECT table_name FROM information_schema.views WHERE table_schema = '{_database_name}' AND table_name LIKE '%_vw'"))
+                                .fetch_all(&hcon).await?;
+                            for rw in rows.iter() {
+                                sqlx::query(&format!("CREATE TABLE `{vw}$$` AS SELECT * FROM `{vw}` LIMIT 1", vw=rw.get_string(0))).execute(&hcon).await?;
+                            }
+                            some_rows = Some(rows);
                         }
-                    }
 
-                    (None, table_stmts)
+                        println!("Discovering schema ...");
+                        let schema_discovery = SchemaDiscovery::new(connection, _database_name);
+                        let schema = schema_discovery.discover().await?;
+                        let table_stmts = schema
+                            .tables
+                            .into_iter()
+                            .filter(|schema| filter_tables(&schema.info.name))
+                            .filter(|schema| filter_hidden_tables(&schema.info.name))
+                            .filter(|schema| filter_skip_tables(&schema.info.name))
+                            .map(|schema| schema.write())
+                            .collect();
+
+                        if let Some(rows) = some_rows {
+                            for rw in rows {
+                                sqlx::query(&format!("DROP TABLE IF EXISTS `{vw}$$`", vw=rw.get_string(0))).execute(&hcon).await?;
+                            }
+                        }
+
+                        (None, table_stmts)
+                    }
                 }
                 "sqlite" => {
-                    use sea_schema::sqlite::discovery::SchemaDiscovery;
-                    use sqlx::Sqlite;
+                    #[cfg(not(feature = "sqlx-sqlite"))]
+                    {
+                        panic!("sqlite feature is off")
+                    }
+                    #[cfg(feature = "sqlx-sqlite")]
+                    {
+                        use sea_schema::sqlite::discovery::SchemaDiscovery;
+                        use sqlx::Sqlite;
 
-                    println!("Connecting to SQLite ...");
-                    let connection = sqlx_connect::<Sqlite>(
-                        max_connections,
-                        acquire_timeout,
-                        url.as_str(),
-                        None,
-                    )
-                    .await?;
-
-                    println!("Discovering schema ...");
-                    let schema_discovery = SchemaDiscovery::new(connection);
-                    let schema = schema_discovery
-                        .discover()
-                        .await?
-                        .merge_indexes_into_table();
-                    let table_stmts = schema
-                        .tables
-                        .into_iter()
-                        .filter(|schema| filter_tables(&schema.name))
-                        .filter(|schema| filter_hidden_tables(&schema.name))
-                        .filter(|schema| filter_skip_tables(&schema.name))
-                        .map(|schema| schema.write())
-                        .collect();
-                    (None, table_stmts)
+                        println!("Connecting to SQLite ...");
+                        let connection = sqlx_connect::<Sqlite>(
+                            max_connections,
+                            acquire_timeout,
+                            url.as_str(),
+                            None,
+                        )
+                        .await?;
+                        println!("Discovering schema ...");
+                        let schema_discovery = SchemaDiscovery::new(connection);
+                        let schema = schema_discovery
+                            .discover()
+                            .await?
+                            .merge_indexes_into_table();
+                        let table_stmts = schema
+                            .tables
+                            .into_iter()
+                            .filter(|schema| filter_tables(&schema.name))
+                            .filter(|schema| filter_hidden_tables(&schema.name))
+                            .filter(|schema| filter_skip_tables(&schema.name))
+                            .map(|schema| schema.write())
+                            .collect();
+                        (None, table_stmts)
+                    }
                 }
                 "postgres" | "postgresql" => {
-                    use sea_schema::postgres::discovery::SchemaDiscovery;
-                    use sqlx::Postgres;
-
-                    println!("Connecting to Postgres ...");
-                    let schema = database_schema.as_deref().unwrap_or("public");
-                    let connection = sqlx_connect::<Postgres>(
-                        max_connections,
-                        acquire_timeout,
-                        url.as_str(),
-                        Some(schema),
-                    )
-                    .await?;
-
-                    let hcon = connection.clone();
-                    let mut some_rows = None;
-                    if views_hack {
-                        let rows = sqlx::query("SELECT table_name FROM information_schema.views WHERE table_name LIKE '%_vw'")
-                            .fetch_all(&hcon).await?;
-                        for rw in rows.iter() {
-                            sqlx::query(&format!(r#"CREATE TABLE "{vw}$$" AS SELECT * FROM "{vw}" LIMIT 1"#, vw=rw.get::<String, _>(0))).execute(&hcon).await?;
-                        }
-                        some_rows = Some(rows);
+                    #[cfg(not(feature = "sqlx-postgres"))]
+                    {
+                        panic!("postgres feature is off")
                     }
+                    #[cfg(feature = "sqlx-postgres")]
+                    {
+                        use sea_schema::postgres::discovery::SchemaDiscovery;
+                        use sqlx::Postgres;
 
-                    println!("Discovering schema ...");
-                    let schema_discovery = SchemaDiscovery::new(connection, schema);
-                    let schema = schema_discovery.discover().await?;
-                    let table_stmts = schema
-                        .tables
-                        .into_iter()
-                        .filter(|schema| filter_tables(&schema.info.name))
-                        .filter(|schema| filter_hidden_tables(&schema.info.name))
-                        .filter(|schema| filter_skip_tables(&schema.info.name))
-                        .map(|schema| schema.write())
-                        .collect();
+                        println!("Connecting to Postgres ...");
+                        let schema = database_schema.as_deref().unwrap_or("public");
+                        let connection = sqlx_connect::<Postgres>(
+                            max_connections,
+                            acquire_timeout,
+                            url.as_str(),
+                            Some(schema),
+                        )
+                        .await?;
 
-                    if let Some(rows) = some_rows {
-                        for rw in rows {
-                            sqlx::query(&format!(r#"DROP TABLE IF EXISTS "{vw}$$""#, vw=rw.get::<String, _>(0))).execute(&hcon).await?;
+                        let hcon = connection.clone();
+                        let mut some_rows = None;
+                        if views_hack {
+                            let rows = sqlx::query("SELECT table_name FROM information_schema.views WHERE table_name LIKE '%_vw'")
+                                .fetch_all(&hcon).await?;
+                            for rw in rows.iter() {
+                                sqlx::query(&format!(r#"CREATE TABLE "{vw}$$" AS SELECT * FROM "{vw}" LIMIT 1"#, vw=rw.get::<String, _>(0))).execute(&hcon).await?;
+                            }
+                            some_rows = Some(rows);
                         }
-                    }
 
-                    (database_schema, table_stmts)
+                        println!("Discovering schema ...");
+                        let schema_discovery = SchemaDiscovery::new(connection, schema);
+                        let schema = schema_discovery.discover().await?;
+                        let table_stmts = schema
+                            .tables
+                            .into_iter()
+                            .filter(|schema| filter_tables(&schema.info.name))
+                            .filter(|schema| filter_hidden_tables(&schema.info.name))
+                            .filter(|schema| filter_skip_tables(&schema.info.name))
+                            .map(|schema| schema.write())
+                            .collect();
+
+                        if let Some(rows) = some_rows {
+                            for rw in rows {
+                                sqlx::query(&format!(r#"DROP TABLE IF EXISTS "{vw}$$""#, vw=rw.get::<String, _>(0))).execute(&hcon).await?;
+                            }
+                        }
+
+                        (database_schema, table_stmts)
+                    }
                 }
                 _ => unimplemented!("{} is not supported", url.scheme()),
             };
