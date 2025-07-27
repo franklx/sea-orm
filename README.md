@@ -268,7 +268,20 @@ A big shout out to our contributors!
 
 [SeaQL.org](https://www.sea-ql.org/) is an independent open-source organization run by passionate developers. If you enjoy using our libraries, please star and share our repositories. If you feel generous, a small donation via [GitHub Sponsor](https://github.com/sponsors/SeaQL) will be greatly appreciated, and goes a long way towards sustaining the organization.
 
+### Gold Sponsors
+
+<table><tr>
+<td><a href="https://qdx.co/">
+  <img src="https://www.sea-ql.org/static/sponsors/QDX.svg" width="138"/>
+</a></td>
+</tr></table>
+
+[QDX](https://qdx.co/) pioneers quantum dynamics-powered drug discovery, leveraging AI and supercomputing to accelerate molecular modeling.
+We're immensely grateful to QDX for sponsoring the development of SeaORM, the SQL toolkit that powers their data engineering workflows.
+
 ### Silver Sponsors
+
+We’re grateful to our silver sponsors: Digital Ocean, for sponsoring our servers. And JetBrains, for sponsoring our IDE.
 
 <table><tr>
 <td><a href="https://www.digitalocean.com/">
@@ -279,8 +292,6 @@ A big shout out to our contributors!
   <img src="https://www.sea-ql.org/static/sponsors/JetBrains.svg" width="125">
 </a></td>
 </tr></table>
-
-We’re immensely grateful to our sponsors: Digital Ocean, for sponsoring our servers. And JetBrains, for sponsoring our IDE.
 
 ## Mascot
 
