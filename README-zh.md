@@ -21,7 +21,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/SeaQL/sea-orm.svg?style=social&label=Star&maxAge=1)](https://github.com/SeaQL/sea-orm/stargazers/)
 如果你喜欢我们的工作，请考虑给我们点星、分享和贡献代码！
 
-请通过完成 [SeaQL 社区调查 2024](https://sea-ql.org/community-survey/) 帮助我们维护 SeaORM！
+完成 [SeaQL 社区调查 2025](https://www.sea-ql.org/community-survey/) 可以帮助我们维护 SeaORM！
 
 [![Discord](https://img.shields.io/discord/873880840487206962?label=Discord)](https://discord.com/invite/uCPdDXzbdv)
 加入我们的 Discord 服务器，与 SeaQL 社区的其他成员交流！
@@ -158,6 +158,27 @@ let pear = pear.insert(db).await?;
 
 // 插入多个
 Fruit::insert_many([apple, pear]).exec(db).await?;
+```
+### 高级插入
+```rust
+// 插入多条记录并返回（需要数据库支持）
+let models: Vec<fruit::Model> = Fruit::insert_many([apple, pear])
+    .exec_with_returning_many(db)
+    .await?;
+models[0]
+    == fruit::Model {
+        id: 1,
+        name: "Apple".to_owned(),
+        cake_id: None,
+    };
+
+// 使用 ON CONFLICT，在主键冲突时忽略插入, 并为 MySQL 提供特定的 polyfill
+let result = Fruit::insert_many([apple, pear])
+    .on_conflict_do_nothing()
+    .exec(db)
+    .await?;
+
+matches!(result, TryInsertResult::Conflicted);
 ```
 ### 更新
 ```rust

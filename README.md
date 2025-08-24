@@ -21,7 +21,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/SeaQL/sea-orm.svg?style=social&label=Star&maxAge=1)](https://github.com/SeaQL/sea-orm/stargazers/)
 If you like what we do, consider starring, sharing and contributing!
 
-Please help us with maintaining SeaORM by completing the [SeaQL Community Survey 2024](https://sea-ql.org/community-survey)!
+Please help us with maintaining SeaORM by completing the [SeaQL Community Survey 2025](https://www.sea-ql.org/community-survey/)!
 
 [![Discord](https://img.shields.io/discord/873880840487206962?label=Discord)](https://discord.com/invite/uCPdDXzbdv)
 Join our Discord server to chat with other members of the SeaQL community!
@@ -158,6 +158,27 @@ let pear = pear.insert(db).await?;
 
 // insert many
 Fruit::insert_many([apple, pear]).exec(db).await?;
+```
+### Insert (advanced)
+```rust
+// insert many with returning (if supported by database)
+let models: Vec<fruit::Model> = Fruit::insert_many([apple, pear])
+    .exec_with_returning_many(db)
+    .await?;
+models[0]
+    == fruit::Model {
+        id: 1,
+        name: "Apple".to_owned(),
+        cake_id: None,
+    };
+
+// insert with ON CONFLICT on primary key do nothing, with MySQL specific polyfill
+let result = Fruit::insert_many([apple, pear])
+    .on_conflict_do_nothing()
+    .exec(db)
+    .await?;
+
+matches!(result, TryInsertResult::Conflicted);
 ```
 ### Update
 ```rust
