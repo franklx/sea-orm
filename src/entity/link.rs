@@ -23,14 +23,6 @@ pub trait Linked {
     fn find_linked(&self) -> Select<Self::ToEntity> {
         find_linked(self.link().into_iter().rev(), JoinType::InnerJoin)
     }
-
-    /// Find all the Entities that are linked to the Entity, in reverse
-    fn find_linked_rev(&self) -> Select<Self::FromEntity> {
-        find_linked(
-            self.link().into_iter().map(LinkDef::rev),
-            JoinType::LeftJoin,
-        )
-    }
 }
 
 pub(crate) fn find_linked<I, E>(links: I, join: JoinType) -> Select<E>
