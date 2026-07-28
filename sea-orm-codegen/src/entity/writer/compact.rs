@@ -31,10 +31,25 @@ impl EntityWriter {
                 model_extra_attributes,
                 &active_enums.type_idents,
             ),
+            Self::gen_partial_struct(
+                entity,
+                with_serde,
+                column_option,
+                serde_skip_deserializing_primary_key,
+                serde_skip_hidden_column,
+                model_extra_derives,
+            ),
             Self::gen_compact_relation_enum(entity),
+            Self::gen_tree_struct(
+                entity,
+                with_serde,
+                model_extra_derives,
+                model_extra_attributes,
+            ),
         ];
         code_blocks.extend(Self::gen_impl_related(entity));
         code_blocks.extend(Self::gen_impl_conjunct_related(entity));
+        code_blocks.extend(Self::gen_impl_linked(entity));
         if impl_active_model_behavior {
             code_blocks.extend([Self::impl_active_model_behavior()]);
         }
@@ -56,7 +71,7 @@ impl EntityWriter {
         model_extra_attributes: &TokenStream,
         active_enum_type_idents: &ActiveEnumTypeIdents,
     ) -> TokenStream {
-        let table_name = entity.table_name.as_str();
+        let table_name = entity.table_name.as_str().replace("$$", "");
         let column_names_snake_case = entity.get_column_names_snake_case();
         let column_rs_types = Self::get_column_rs_types_with_enum_idents(
             entity,
@@ -125,6 +140,7 @@ impl EntityWriter {
             None => quote! {},
         };
         let extra_derive = with_serde.extra_derive();
+        let serde_extra_attributes = with_serde.extra_attributes(entity, None, None);
 
         quote! {
             #[derive(Clone, Debug, PartialEq #if_eq_needed, DeriveEntityModel #extra_derive #model_extra_derives)]
@@ -132,6 +148,7 @@ impl EntityWriter {
                 #schema_name
                 table_name = #table_name
             )]
+            #serde_extra_attributes
             #model_extra_attributes
             pub struct Model {
                 #(

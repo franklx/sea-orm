@@ -13,7 +13,8 @@ license       = "MIT OR Apache-2.0"
 name          = "sea-orm"
 repository    = "https://github.com/SeaQL/sea-orm"
 rust-version  = "1.94.0"
-version       = "2.0.0"
+version       = "2.0.0+frk.9"
+publish       = ["elleci"]
 
 [package.metadata.docs.rs]
 features = [
@@ -65,7 +66,7 @@ sea-orm-arrow = { version = "2.0.0-rc", path = "sea-orm-arrow", default-features
 sea-orm-macros = { version = "~2.0.0", path = "sea-orm-macros", default-features = false, features = [
     "async",
     "strum",
-] }
+], registry = "elleci" }
 sea-query = { version = "~1.0.0", default-features = false, features = [
     "thread-safe",
     "hashable-value",
@@ -93,6 +94,7 @@ tracing = { version = "0.1", default-features = false, features = [
 ] }
 url = { version = "2.2", default-features = false }
 uuid = { version = "1", default-features = false, optional = true }
+defined = { registry = "elleci", version = "0.5", default-features = false, features = ["sea-query"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = { version = "1.1.0", default-features = false }
@@ -106,7 +108,7 @@ sea-orm = { path = ".", features = [
     "mock",
     "postgres-array",
     "tests-cfg",
-] }
+], registry = "elleci" }
 smol = { version = "1.2" }
 smol-potat = { version = "1.1" }
 time = { version = "0.3.36", features = ["macros"] }

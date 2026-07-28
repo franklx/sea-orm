@@ -1,7 +1,8 @@
 use crate::{ActiveEnum, ColumnOption, Entity, util::escape_rust_keyword};
-use heck::ToUpperCamelCase;
+use heck::{ToSnakeCase, ToUpperCamelCase};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
+use sea_query::ForeignKeyAction;
 use std::{
     collections::{BTreeMap, BTreeSet},
     str::FromStr,
@@ -134,6 +135,29 @@ impl WithSerde {
             extra_derive = quote! { , #extra_derive }
         }
         extra_derive
+    }
+    pub fn extra_attributes(&self, entity: &Entity, ext: Option<&str>, other: Option<&str>) -> TokenStream {
+        match self {
+            Self::None => {
+                quote! {}
+            }
+            _ => {
+                let struct_name = format!(
+                    "{}{}",
+                    entity.get_table_name_camel_case(),
+                    ext.unwrap_or_default()
+                );
+                let other = if let Some(attr) = other {
+                    let attr = TokenStream::from_str(attr).unwrap();
+                    quote! { , #attr}
+                } else {
+                    quote! {}
+                };
+                quote! {
+                    #[serde(rename = #struct_name #other)]
+                }
+            }
+        }
     }
 }
 
@@ -572,11 +596,13 @@ impl EntityWriter {
             WithSerde::Deserialize => {
                 quote! {
                     use serde::Deserialize;
+                    use defined::Defined;
                 }
             }
             WithSerde::Both => {
                 quote! {
                     use serde::{Deserialize,Serialize};
+                    use defined::Defined;
                 }
             }
         }
@@ -598,7 +624,7 @@ impl EntityWriter {
             },
             None => quote! {},
         };
-        let table_name = entity.table_name.as_str();
+        let table_name = entity.table_name.as_str().replace("$$", "");
         let table_name = quote! {
             fn table_name(&self) -> &'static str {
                 #table_name
@@ -704,11 +730,126 @@ impl EntityWriter {
             .collect()
     }
 
+    pub fn gen_partial_struct(
+        entity: &Entity,
+        with_serde: &WithSerde,
+        column_option: &ColumnOption,
+        serde_skip_deserializing_primary_key: bool,
+        serde_skip_hidden_column: bool,
+        model_extra_derives: &TokenStream,
+    ) -> TokenStream {
+        if entity.table_name.ends_with("$$") {
+            return quote! {};
+        }
+        let columns = entity.get_columns_by_serde_attributes(serde_skip_hidden_column);
+        let column_names_snake_case: Vec<_> = columns
+            .iter()
+            .map(|col| col.get_name_snake_case())
+            .collect();
+        let column_rs_types: Vec<_> = columns
+            .iter()
+            .map(|col| col.get_rs_type(column_option))
+            .collect();
+        let if_eq_needed = entity.get_eq_needed();
+        let serde_extra_attributes = with_serde.extra_attributes(entity, Some("Partial"), Some("default"));
+
+        match with_serde {
+            WithSerde::Deserialize | WithSerde::Both => quote! {
+                #[derive(Clone, Debug, PartialEq, DeriveIntoActiveModel, Deserialize, Default #if_eq_needed #model_extra_derives)]
+                #serde_extra_attributes
+                pub struct Partial {
+                    #(
+                        pub #column_names_snake_case: Defined<#column_rs_types>,
+                    )*
+                }
+            },
+            _ => quote! {},
+        }
+    }
+
+    pub fn gen_tree_struct(
+        entity: &Entity,
+        with_serde: &WithSerde,
+        model_extra_derives: &TokenStream,
+        model_extra_attributes: &TokenStream,
+    ) -> TokenStream {
+        let extra_derive = with_serde.extra_derive();
+        let serde_extra_attributes = with_serde.extra_attributes(entity, Some("Tree"), None);
+        let (field_names, field_types): (Vec<Ident>, Vec<TokenStream>) = entity
+            .relations
+            .iter()
+            .filter_map(|rel| {
+                if let Some(mod_name) = rel.get_module_name() {
+                    let suffix = if let [Some(l_name), Some(r_name)] =
+                        [rel.columns.first(), rel.ref_columns.first()]
+                    {
+                        l_name.strip_prefix(r_name).unwrap_or_default()
+                    } else {
+                        ""
+                    };
+                    let prefix = rel.columns
+                        .first()
+                        .map_or_else(
+                            || mod_name.to_string(),
+                            |s| s.to_snake_case().trim_end_matches("_id").to_owned(),
+                        );
+                    let field_name = format_ident!("{prefix}{suffix}");
+                    // println!("{name}: {rel:?}", name=&entity.table_name, rel=&rel);
+                    match (&rel.rel_type, &rel.on_delete) {
+                        (crate::RelationType::HasOne, _) => {
+                            Some((field_name, quote! {Option<super::#mod_name::Tree>}))
+                        }
+                        | (crate::RelationType::HasMany, Some(ForeignKeyAction::Cascade))
+                        | (crate::RelationType::HasMany, Some(ForeignKeyAction::SetDefault))
+                        | (crate::RelationType::HasMany, Some(ForeignKeyAction::SetNull))
+                        => {
+                            Some((field_name, quote! {Option<Vec<super::#mod_name::Tree>>}))
+                        }
+                        | (crate::RelationType::BelongsTo, Some(ForeignKeyAction::NoAction))
+                        | (crate::RelationType::BelongsTo, None)
+                        => {
+                            Some((field_name, quote! {Option<super::#mod_name::Tree>}))
+                        }
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            })
+            .unzip();
+
+        quote! {
+            #[derive(Clone, Debug, PartialEq #extra_derive #model_extra_derives)]
+            #serde_extra_attributes
+            #model_extra_attributes
+            pub struct Tree {
+                #[serde(flatten)]
+                pub model: Model,
+                #(pub #field_names: #field_types),*
+            }
+            impl std::ops::Deref for Tree {
+                type Target = Model;
+
+                fn deref(&self) -> &Model {
+                    &self.model
+                }
+            }
+            impl From<Model> for Tree {
+                fn from(model: Model) -> Self {
+                    Self {
+                        model,
+                        #(#field_names: None),*
+                    }
+                }
+            }
+        }
+    }
+
     pub fn gen_column_enum(entity: &Entity, column_extra_derives: &TokenStream) -> TokenStream {
         let column_variants = entity.columns.iter().map(|col| {
             let variant = col.get_name_camel_case();
             let mut variant = quote! { #variant };
-            if !col.is_snake_case_name() {
+            if col.name != col.name.to_upper_camel_case().to_snake_case() {
                 let column_name = &col.name;
                 variant = quote! {
                     #[sea_orm(column_name = #column_name)]
@@ -874,6 +1015,26 @@ impl EntityWriter {
                         fn via() -> Option<RelationDef> {
                             Some(super::#via_snake_case::Relation::#table_name_camel_case.def().rev())
                         }
+                    }
+                }
+            })
+            .collect()
+    }
+
+    pub fn gen_impl_linked(entity: &Entity) -> Vec<TokenStream> {
+        entity
+            .relations
+            .iter()
+            .filter(|rel| !rel.self_referencing && rel.num_suffix > 0 && rel.impl_related)
+            .map(|rel| {
+                let enum_name = rel.get_enum_name();
+                let module_name = rel.get_module_name();
+                quote! {
+                    pub struct #enum_name;
+                    impl Linked for #enum_name {
+                        type FromEntity = Entity;
+                        type ToEntity = super::#module_name::Entity;
+                        fn link(&self) -> Vec<RelationDef> { vec![Relation::#enum_name.def()] }
                     }
                 }
             })

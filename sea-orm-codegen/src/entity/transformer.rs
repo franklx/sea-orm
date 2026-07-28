@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 pub struct EntityTransformer;
 
 impl EntityTransformer {
-    pub fn transform(table_create_stmts: Vec<TableCreateStatement>) -> Result<EntityWriter, Error> {
+    pub fn transform(table_create_stmts: Vec<TableCreateStatement>, include_hidden_columns: bool, ignore_columns: Vec<String>) -> Result<EntityWriter, Error> {
         let mut enums: BTreeMap<String, ActiveEnum> = BTreeMap::new();
         let mut inverse_relations: BTreeMap<String, Vec<Relation>> = BTreeMap::new();
         let mut entities = BTreeMap::new();
@@ -26,6 +26,13 @@ impl EntityTransformer {
             let mut columns: Vec<Column> = table_create
                 .get_columns()
                 .iter()
+                .filter(|col_def| {
+                    let name = &col_def.get_column_name();
+                    let skip =
+                        ignore_columns.contains(name) ||
+                        (!include_hidden_columns && name.starts_with('_'));
+                    !skip
+                })
                 .map(|col_def| {
                     let primary_key = col_def.get_column_spec().primary_key;
                     if primary_key {
@@ -83,6 +90,13 @@ impl EntityTransformer {
                 .get_foreign_key_create_stmts()
                 .iter()
                 .map(|fk_create_stmt| fk_create_stmt.get_foreign_key())
+                .filter(|tbl_fk| {
+                    let hack = format!("{:?}", tbl_fk);
+                    let name = hack.find("name: Some(\"").map(|i| &hack[i+12..]);
+                    let ret = include_hidden_columns || !name.unwrap_or_default().trim().starts_with('_');
+                    println!("{hack}: {ret}");
+                    ret
+                })
                 .map(|tbl_fk| {
                     let ref_tbl = tbl_fk.get_ref_table().unwrap().sea_orm_table().to_string();
                     if let Some(count) = ref_table_counts.get_mut(&ref_tbl) {
@@ -557,7 +571,7 @@ mod tests {
                 table_create_stmts: Vec<TableCreateStatement>,
                 files: Vec<(&str, &str)>,
             ) -> Result<(), Box<dyn Error>> {
-                let entities: HashMap<_, _> = EntityTransformer::transform(table_create_stmts)?
+                let entities: HashMap<_, _> = EntityTransformer::transform(table_create_stmts, false, vec![])?
                     .entities
                     .into_iter()
                     .map(|entity| (entity.table_name.clone(), entity))

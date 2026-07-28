@@ -293,6 +293,23 @@ impl Entity {
             })
             .collect()
     }
+
+    pub fn get_columns_by_serde_attributes(
+        &self,
+        serde_skip_hidden_column: bool,
+    ) -> Vec<&Column> {
+        self.columns
+            .iter()
+            .filter(|col| {
+                let is_primary_key = self.primary_keys.iter().any(|pk| pk.name == col.name);
+                col.include_if_serde_attribute(
+                    is_primary_key,
+                    col.auto_increment,
+                    serde_skip_hidden_column,
+                )
+            })
+            .collect()
+    }
 }
 
 #[cfg(test)]

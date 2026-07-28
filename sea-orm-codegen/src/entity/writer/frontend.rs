@@ -109,9 +109,11 @@ impl EntityWriter {
             })
             .collect();
         let extra_derive = with_serde.extra_derive();
+        let serde_extra_attributes = with_serde.extra_attributes(entity, None, None);
 
         quote! {
             #[derive(Clone, Debug, PartialEq #if_eq_needed #extra_derive #model_extra_derives)]
+            #serde_extra_attributes
             #model_extra_attributes
             pub struct Model {
                 #(

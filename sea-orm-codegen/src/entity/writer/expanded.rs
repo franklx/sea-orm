@@ -32,15 +32,30 @@ impl EntityWriter {
                 model_extra_attributes,
                 &active_enums.type_idents,
             ),
+            Self::gen_partial_struct(
+                entity,
+                with_serde,
+                column_option,
+                serde_skip_deserializing_primary_key,
+                serde_skip_hidden_column,
+                model_extra_derives,
+            ),
             Self::gen_column_enum(entity, column_extra_derives),
             Self::gen_primary_key_enum(entity),
             Self::gen_impl_primary_key(entity, column_option),
             Self::gen_relation_enum(entity),
             Self::gen_impl_column_trait(entity, &active_enums.type_idents),
             Self::gen_impl_relation_trait(entity),
+            Self::gen_tree_struct(
+                entity,
+                with_serde,
+                model_extra_derives,
+                model_extra_attributes,
+            ),
         ];
         code_blocks.extend(Self::gen_impl_related(entity));
         code_blocks.extend(Self::gen_impl_conjunct_related(entity));
+        code_blocks.extend(Self::gen_impl_linked(entity));
         if impl_active_model_behavior {
             code_blocks.extend([Self::impl_active_model_behavior()]);
         }
@@ -73,9 +88,11 @@ impl EntityWriter {
             serde_skip_hidden_column,
         );
         let extra_derive = with_serde.extra_derive();
+        let serde_extra_attributes = with_serde.extra_attributes(entity, None, None);
 
         quote! {
             #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel #if_eq_needed #extra_derive #model_extra_derives)]
+            #serde_extra_attributes
             #model_extra_attributes
             pub struct Model {
                 #(

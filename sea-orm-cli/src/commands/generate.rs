@@ -5,6 +5,8 @@ use sea_orm_codegen::{
     DateTimeCrate as CodegenDateTimeCrate, EntityFormat, EntityTransformer, EntityWriterContext,
     MergeReport, OutputFile, WithPrelude, WithSerde, merge_entity_files,
 };
+use sea_schema::mysql::discovery::GetMySqlValue;
+use sqlx::Row;
 use std::{error::Error, fs, path::Path, process::Command, str::FromStr};
 use tracing_subscriber::{EnvFilter, prelude::*};
 use url::Url;
@@ -104,6 +106,8 @@ pub async fn run_generate_command(
             include_hidden_tables,
             tables,
             ignore_tables,
+            include_hidden_columns,
+            ignore_columns,
             max_connections,
             acquire_timeout,
             output_dir,
@@ -127,6 +131,7 @@ pub async fn run_generate_command(
             preserve_user_modifications,
             banner_version,
             er_diagram,
+            views_hack,
         } => {
             if verbose {
                 let _ = tracing_subscriber::fmt()
@@ -219,6 +224,29 @@ pub async fn run_generate_command(
                             None,
                         )
                         .await?;
+
+                        let hcon = connection.clone();
+                        let mut some_rows = None;
+                        if views_hack {
+                            let rows = sqlx::query(sqlx::AssertSqlSafe(format!("SELECT table_name FROM information_schema.views WHERE table_schema = '{_database_name}' AND table_name LIKE '%_vw'")))
+                                .fetch_all(&hcon).await?;
+                            for rw in rows.iter() {
+                                sqlx::query(sqlx::AssertSqlSafe(format!("CREATE TABLE `{vw}$$` AS SELECT * FROM `{vw}` LIMIT 1", vw=rw.get_string(0)))).execute(&hcon).await?;
+                            }
+                            some_rows = Some(rows);
+                        }
+
+                        let hcon = connection.clone();
+                        let mut some_rows = None;
+                        if views_hack {
+                            let rows = sqlx::query("SELECT table_name FROM information_schema.views WHERE table_name LIKE '%_vw'")
+                                .fetch_all(&hcon).await?;
+                            for rw in rows.iter() {
+                                sqlx::query(sqlx::AssertSqlSafe(format!(r#"CREATE TABLE "{vw}$$" AS SELECT * FROM "{vw}" LIMIT 1"#, vw=rw.get::<String, _>(0)))).execute(&hcon).await?;
+                            }
+                            some_rows = Some(rows);
+                        }
+
                         println!("Discovering schema ...");
                         let schema_discovery = SchemaDiscovery::new(connection, _database_name);
                         let schema = schema_discovery.discover().await?;
@@ -234,6 +262,13 @@ pub async fn run_generate_command(
                                 schema.write()
                             })
                             .collect();
+
+                        if let Some(rows) = some_rows {
+                            for rw in rows {
+                                sqlx::query(sqlx::AssertSqlSafe(format!("DROP TABLE IF EXISTS `{vw}$$`", vw=rw.get_string(0)))).execute(&hcon).await?;
+                            }
+                        }
+
                         (None, table_stmts)
                     }
                 }
@@ -299,6 +334,18 @@ pub async fn run_generate_command(
                             Some(schema),
                         )
                         .await?;
+
+                        let hcon = connection.clone();
+                        let mut some_rows = None;
+                        if views_hack {
+                            let rows = sqlx::query("SELECT table_name FROM information_schema.views WHERE table_name LIKE '%_vw'")
+                                .fetch_all(&hcon).await?;
+                            for rw in rows.iter() {
+                                sqlx::query(sqlx::AssertSqlSafe(format!(r#"CREATE TABLE "{vw}$$" AS SELECT * FROM "{vw}" LIMIT 1"#, vw=rw.get::<String, _>(0)))).execute(&hcon).await?;
+                            }
+                            some_rows = Some(rows);
+                        }
+
                         println!("Discovering schema ...");
                         let schema_discovery = SchemaDiscovery::new(connection, schema);
                         let schema = schema_discovery.discover().await?;
@@ -314,6 +361,13 @@ pub async fn run_generate_command(
                                 schema.write()
                             })
                             .collect();
+
+                        if let Some(rows) = some_rows {
+                            for rw in rows {
+                                sqlx::query(sqlx::AssertSqlSafe(format!(r#"DROP TABLE IF EXISTS "{vw}$$""#, vw=rw.get::<String, _>(0)))).execute(&hcon).await?;
+                            }
+                        }
+
                         (database_schema, table_stmts)
                     }
                 }
@@ -358,7 +412,7 @@ pub async fn run_generate_command(
                 impl_active_model_behavior,
                 banner_version.into(),
             );
-            let entity_writer = EntityTransformer::transform(table_stmts)?;
+            let entity_writer = EntityTransformer::transform(table_stmts, include_hidden_columns, ignore_columns)?;
 
             let dir = Path::new(&output_dir);
             fs::create_dir_all(dir)?;
@@ -410,7 +464,10 @@ pub async fn run_generate_command(
 
             // Format each of the files
             for OutputFile { name, .. } in output.files.iter() {
-                let exit_status = Command::new("rustfmt").arg(dir.join(name)).status()?; // Get the status code
+                let exit_status = Command::new("rustup")
+                    .args(["run", "nightly", "rustfmt", "--"])
+                    .arg(dir.join(name))
+                    .status()?; // Get the status code
                 if !exit_status.success() {
                     // Propagate the error if any
                     return Err(format!("Fail to format file `{name}`").into());

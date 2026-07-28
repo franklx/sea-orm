@@ -10,7 +10,8 @@ license       = "MIT OR Apache-2.0"
 name          = "sea-orm-codegen"
 repository    = "https://github.com/SeaQL/sea-orm"
 rust-version  = "1.88.0"
-version       = "2.0.0"
+version       = "2.0.0+frk.8"
+publish       = ["elleci"]
 
 [lib]
 name = "sea_orm_codegen"
@@ -44,4 +45,4 @@ tracing = { version = "0.1", default-features = false, features = ["log"] }
 [dev-dependencies]
 indoc             = "2.0.6"
 pretty_assertions = { version = "0.7" }
-sea-orm           = { path = "../", default-features = false, features = ["macros"] }
+sea-orm           = { path = "../", default-features = false, features = ["macros"], registry = "elleci" }

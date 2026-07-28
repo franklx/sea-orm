@@ -31,7 +31,14 @@ impl Relation {
         let name = if self.self_referencing {
             format_ident!("SelfRef")
         } else {
-            format_ident!("{}", self.ref_table.to_upper_camel_case())
+            format_ident!("{}",
+                self.columns
+                    .get(0)
+                    .map_or_else(
+                        || self.ref_table.to_upper_camel_case(),
+                        |s| s.to_upper_camel_case().trim_end_matches("Id").to_owned()
+                    )
+            )
         };
         if self.num_suffix > 0 {
             format_ident!("{}{}", name, self.num_suffix)

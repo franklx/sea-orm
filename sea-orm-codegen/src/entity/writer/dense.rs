@@ -190,7 +190,7 @@ impl EntityWriter {
         model_extra_attributes: &TokenStream,
         active_enum_type_idents: &ActiveEnumTypeIdents,
     ) -> TokenStream {
-        let table_name = entity.table_name.as_str();
+        let table_name = entity.table_name.as_str().replace("$$", "");
         let column_names_snake_case = entity.get_column_names_snake_case();
         let column_rs_types = Self::get_column_rs_types_with_enum_idents(
             entity,
@@ -259,6 +259,7 @@ impl EntityWriter {
             None => quote! {},
         };
         let extra_derive = with_serde.extra_derive();
+        let serde_extra_attributes = with_serde.extra_attributes(entity, None, None);
 
         let mut compound_objects: Punctuated<_, Comma> = Punctuated::new();
 
@@ -300,6 +301,7 @@ impl EntityWriter {
                 #schema_name
                 table_name = #table_name
             )]
+            #serde_extra_attributes
             #model_extra_attributes
             pub struct Model {
                 #(

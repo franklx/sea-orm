@@ -205,6 +205,19 @@ pub enum GenerateSubcommands {
 
         #[arg(
             long,
+            help = "Include hidden columns in entities (i.e. column name starts with an underscore)"
+        )]
+        include_hidden_columns: bool,
+
+        #[arg(
+            long,
+            value_delimiter = ',',
+            help = "Exclude specified columns from generated entities (comma separated)"
+        )]
+        ignore_columns: Vec<String>,
+
+        #[arg(
+            long,
             default_value = "1",
             help = "The maximum amount of connections to use when connecting to the database."
         )]
@@ -386,6 +399,9 @@ pub enum GenerateSubcommands {
             help = "Also generate a Mermaid ER diagram as `entities.mermaid` in the output directory"
         )]
         er_diagram: bool,
+
+        #[arg(long, help = "Reflect views LIKE '%_vw' using the `information_schema` hack")]
+        views_hack: bool,
     },
 }
 

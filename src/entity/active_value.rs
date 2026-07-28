@@ -131,6 +131,18 @@ where
     }
 }
 
+impl<V> IntoActiveValue<V> for defined::Defined<V>
+where
+    V: IntoActiveValue<V> + Into<Value>,
+{
+    fn into_active_value(self) -> ActiveValue<V> {
+        match self {
+            defined::Defined::Def(value) => Set(value),
+            defined::Defined::Undef => NotSet,
+        }
+    }
+}
+
 macro_rules! impl_into_active_value {
     ($ty: ty) => {
         impl IntoActiveValue<$ty> for $ty {
@@ -155,6 +167,32 @@ impl_into_active_value!(f64);
 impl_into_active_value!(&'static str);
 impl_into_active_value!(String);
 impl_into_active_value!(Vec<u8>);
+
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<bool>);
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<i8>);
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<i16>);
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<i32>);
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<i64>);
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<u16>);
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<u32>);
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<u64>);
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<f32>);
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<f64>);
+#[cfg(feature = "postgres-array")]
+impl_into_active_value!(Vec<String>);
+
+#[cfg(all(feature = "postgres-array", feature = "with-rust_decimal"))]
+impl_into_active_value!(Vec<crate::prelude::Decimal>);
 
 #[cfg(feature = "with-json")]
 #[cfg_attr(docsrs, doc(cfg(feature = "with-json")))]
@@ -454,6 +492,21 @@ where
         match value {
             ActiveValue::Set(value) => ActiveValue::set(Some(value)),
             ActiveValue::Unchanged(value) => ActiveValue::unchanged(Some(value)),
+            ActiveValue::NotSet => ActiveValue::not_set(),
+        }
+    }
+}
+
+impl<V> From<ActiveValue<defined::Defined<V>>> for ActiveValue<V>
+where
+    V: Into<Value> + Nullable,
+{
+    fn from(value: ActiveValue<defined::Defined<V>>) -> Self {
+        match value {
+            ActiveValue::Set(defined::Defined::Def(value)) => ActiveValue::set(value),
+            ActiveValue::Unchanged(defined::Defined::Def(value)) => ActiveValue::unchanged(value),
+            ActiveValue::Set(defined::Defined::Undef) => ActiveValue::not_set(),
+            ActiveValue::Unchanged(defined::Defined::Undef) => ActiveValue::not_set(),
             ActiveValue::NotSet => ActiveValue::not_set(),
         }
     }
