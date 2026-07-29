@@ -143,6 +143,18 @@ where
     }
 }
 
+impl<V> IntoActiveValue<Option<V>> for defined::Defined<Option<V>>
+where
+    V: IntoActiveValue<V> + Into<Value> + Nullable,
+{
+    fn into_active_value(self) -> ActiveValue<Option<V>> {
+        match self {
+            defined::Defined::Def(value) => Set(value),
+            defined::Defined::Undef => NotSet,
+        }
+    }
+}
+
 macro_rules! impl_into_active_value {
     ($ty: ty) => {
         impl IntoActiveValue<$ty> for $ty {
