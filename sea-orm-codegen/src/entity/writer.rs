@@ -752,11 +752,13 @@ impl EntityWriter {
             .collect();
         let if_eq_needed = entity.get_eq_needed();
         let serde_extra_attributes = with_serde.extra_attributes(entity, Some("Partial"), Some("default"));
+        let partial_type = format!("Partial<{}>", entity.get_table_name_camel_case());
 
         match with_serde {
             WithSerde::Deserialize | WithSerde::Both => quote! {
                 #[derive(Clone, Debug, PartialEq, DeriveIntoActiveModel, Deserialize, Default #if_eq_needed #model_extra_derives)]
                 #serde_extra_attributes
+                #[specta(custom = #partial_type, inline)]
                 pub struct Partial {
                     #(
                         pub #column_names_snake_case: Defined<#column_rs_types>,
